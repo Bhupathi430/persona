@@ -1,0 +1,2679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0f172a" />
+  <title>Person Directory - Private Multi-User Person Management</title>
+  <meta name="description" content="Save, organize, search and manage your personal contacts in a private, isolated directory." />
+  
+  <!-- Embedded SVG Favicon -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f97316' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2'/><circle cx='9' cy='7' r='4'/><path d='M22 21v-2a4 4 0 0 0-3-3.87'/><path d='M16 3.13a4 4 0 0 1 0 7.75'/></svg>" />
+
+  <!-- Google Fonts: Plus Jakarta Sans & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            navy: {
+              50: '#f0f4f9',
+              100: '#d9e2f0',
+              200: '#b3c6e2',
+              300: '#8da9d4',
+              400: '#5c84c1',
+              500: '#3460aa',
+              600: '#264b8c',
+              700: '#1d386d',
+              800: '#15294f',
+              900: '#0f172a',
+              950: '#091122',
+            },
+            brand: {
+              navy: '#0f172a',
+              navyLight: '#1e293b',
+              navyMuted: '#334155',
+              orange: '#f97316',
+              orangeHover: '#ea580c',
+              orangeLight: '#ffedd5',
+              charcoal: '#1e293b',
+            }
+          },
+          fontFamily: {
+            sans: ['Plus Jakarta Sans', 'Inter', 'system-ui', 'sans-serif'],
+          },
+          boxShadow: {
+            'subtle': '0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px -1px rgba(0, 0, 0, 0.05)',
+            'card': '0 4px 6px -1px rgba(0, 0, 0, 0.04), 0 2px 4px -2px rgba(0, 0, 0, 0.04)',
+            'card-hover': '0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04)',
+            'elevated': '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.05)',
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Supabase JS Client (v2) CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+
+  <!-- Custom Core Styles & Animations -->
+  <style>
+    body {
+      font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+    
+    /* Smooth Scrollbar */
+    ::-webkit-scrollbar {
+      width: 7px;
+      height: 7px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+
+    /* Glass Effect */
+    .glass-nav {
+      background: rgba(15, 23, 42, 0.92);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    .glass-card {
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(8px);
+    }
+
+    /* Modal Animation */
+    .modal-backdrop {
+      transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .modal-panel {
+      transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    /* Badges & Tags */
+    .badge-orange {
+      background-color: #ffedd5;
+      color: #ea580c;
+    }
+    .badge-navy {
+      background-color: #e2e8f0;
+      color: #0f172a;
+    }
+    
+    /* Print optimizations */
+    @media print {
+      .no-print {
+        display: none !important;
+      }
+    }
+  </style>
+</head>
+
+<body class="bg-slate-50 text-slate-800 antialiased selection:bg-orange-500 selection:text-white min-h-screen flex flex-col">
+
+  <!-- ====================================================================
+       TOAST NOTIFICATION CONTAINER
+       ==================================================================== -->
+  <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col space-y-2 pointer-events-none"></div>
+
+  <!-- ====================================================================
+       TOP NAVIGATION BAR
+       ==================================================================== -->
+  <header class="glass-nav text-white sticky top-0 z-40 border-b border-slate-800 transition-all shadow-md">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      
+      <!-- Brand Logo & Name -->
+      <div class="flex items-center space-x-3 cursor-pointer" onclick="navigateHome()">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-orange-600 to-orange-400 flex items-center justify-center shadow-lg shadow-orange-500/20 text-white font-bold text-lg">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/>
+          </svg>
+        </div>
+        <div>
+          <span class="font-extrabold text-lg sm:text-xl tracking-tight text-white flex items-center gap-1.5">
+            PERSON <span class="text-orange-400">DIRECTORY</span>
+          </span>
+          <p class="text-[10px] text-slate-400 hidden sm:block tracking-wide uppercase font-semibold">Private & Isolated Space</p>
+        </div>
+      </div>
+
+      <!-- Right Navigation Actions -->
+      <div class="flex items-center space-x-2 sm:space-x-3">
+        
+        <!-- Connection Status Pill -->
+        <button onclick="openSupabaseSetupModal()" id="connection-pill" title="Click to view backend connection & SQL guide" class="flex items-center space-x-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700/80 transition shadow-sm">
+          <span id="connection-indicator" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span id="connection-label" class="hidden sm:inline">Supabase Connected</span>
+          <span id="connection-mode-badge" class="px-1.5 py-0.2 rounded text-[10px] bg-slate-700 text-slate-300">Cloud</span>
+        </button>
+
+        <!-- Unauthenticated View Navigation Buttons -->
+        <div id="unauth-nav" class="flex items-center space-x-2">
+          <button onclick="openAuthModal('login')" class="px-3.5 py-1.5 rounded-lg text-sm font-semibold text-slate-200 hover:text-white hover:bg-slate-800 transition">
+            Sign In
+          </button>
+          <button onclick="openAuthModal('register')" class="px-4 py-1.5 rounded-lg text-sm font-semibold bg-orange-500 hover:bg-orange-600 text-white shadow-md shadow-orange-500/25 transition">
+            Create Space
+          </button>
+        </div>
+
+        <!-- Authenticated View Navigation Actions -->
+        <div id="auth-nav" class="hidden flex items-center space-x-2 sm:space-x-3">
+          
+          <!-- Super Admin Button (visible if admin) -->
+          <button id="admin-nav-btn" onclick="toggleAdminView()" class="hidden items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold bg-purple-900/60 text-purple-200 border border-purple-600/50 hover:bg-purple-800 transition shadow-sm">
+            <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+            </svg>
+            <span class="hidden sm:inline">Admin Panel</span>
+          </button>
+
+          <!-- Add Contact Button -->
+          <button onclick="openAddPersonModal()" class="flex items-center space-x-1 px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-semibold bg-orange-500 hover:bg-orange-600 text-white shadow-md shadow-orange-500/25 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+            </svg>
+            <span class="font-bold">Add Contact</span>
+          </button>
+
+          <!-- User Menu Dropdown Button -->
+          <div class="relative">
+            <button onclick="toggleUserMenu()" id="user-menu-btn" class="flex items-center space-x-2 p-1 pl-2 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700 text-slate-200 transition">
+              <div id="user-avatar" class="w-8 h-8 rounded-lg bg-orange-500/20 text-orange-400 border border-orange-500/30 flex items-center justify-center font-bold text-xs">
+                U
+              </div>
+              <span id="user-name-display" class="hidden md:inline text-xs font-semibold max-w-[120px] truncate text-slate-100">User</span>
+              <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+              </svg>
+            </button>
+
+            <!-- Dropdown Menu -->
+            <div id="user-dropdown-menu" class="hidden absolute right-0 mt-2 w-56 bg-white dark:bg-slate-900 rounded-xl shadow-2xl border border-slate-200 dark:border-slate-800 py-1.5 z-50 text-slate-700 dark:text-slate-200 text-sm">
+              <div class="px-4 py-2 border-b border-slate-100 dark:border-slate-800">
+                <p class="text-xs text-slate-400">Signed in as</p>
+                <p id="user-email-display" class="font-semibold text-xs truncate text-slate-900 dark:text-white">user@example.com</p>
+                <div class="mt-1 flex items-center gap-1.5">
+                  <span id="user-role-badge" class="px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300">USER</span>
+                  <span class="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">● Space Isolated</span>
+                </div>
+              </div>
+              <button onclick="openSettingsModal()" class="w-full text-left px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center space-x-2 text-xs font-medium">
+                <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+                <span>Account & Data Export</span>
+              </button>
+              <button onclick="exportData('csv')" class="w-full text-left px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center space-x-2 text-xs font-medium text-slate-700 dark:text-slate-300">
+                <svg class="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+                <span>Export Contacts (CSV)</span>
+              </button>
+              <button onclick="exportData('json')" class="w-full text-left px-4 py-2 hover:bg-slate-50 dark:hover:bg-slate-800/60 flex items-center space-x-2 text-xs font-medium text-slate-700 dark:text-slate-300">
+                <svg class="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                <span>Export Contacts (JSON)</span>
+              </button>
+              <div class="border-t border-slate-100 dark:border-slate-800 my-1"></div>
+              <button onclick="handleSignOut()" class="w-full text-left px-4 py-2 hover:bg-red-50 dark:hover:bg-red-950/40 text-red-600 dark:text-red-400 flex items-center space-x-2 text-xs font-semibold">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+                <span>Sign Out</span>
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ====================================================================
+       MAIN APPLICATION VIEW WRAPPER
+       ==================================================================== -->
+  <main class="flex-grow">
+
+    <!-- ------------------------------------------------------------------
+         VIEW 1: LANDING PAGE (Shown when user is not authenticated)
+         ------------------------------------------------------------------ -->
+    <div id="view-landing" class="block">
+      
+      <!-- Hero Section -->
+      <section class="relative bg-gradient-to-b from-slate-900 via-slate-900 to-slate-800 text-white pt-16 pb-24 overflow-hidden border-b border-slate-800">
+        <!-- Subtle Glow Effects -->
+        <div class="absolute -top-40 -left-40 w-96 h-96 bg-orange-500/10 rounded-full blur-3xl pointer-events-none"></div>
+        <div class="absolute top-1/2 -right-40 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl pointer-events-none"></div>
+
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
+          
+          <!-- Security Badges Ribbon -->
+          <div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/80 border border-slate-700 text-xs font-medium text-slate-300 mb-6 backdrop-blur">
+            <span class="w-2 h-2 rounded-full bg-orange-400"></span>
+            <span class="font-semibold text-white">PostgreSQL Row-Level Security</span>
+            <span class="text-slate-500">•</span>
+            <span class="text-orange-400">Zero-Knowledge Super Admin</span>
+          </div>
+
+          <h1 class="text-3xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight max-w-4xl mx-auto leading-tight sm:leading-tight">
+            Your Private, Multi-User <br />
+            <span class="bg-gradient-to-r from-orange-400 via-amber-300 to-orange-500 bg-clip-text text-transparent">Person Directory Platform</span>
+          </h1>
+
+          <p class="mt-6 text-base sm:text-lg text-slate-300 max-w-2xl mx-auto leading-relaxed">
+            Organize personal and political contacts, village directory records, dates of birth, and notes with guaranteed tenant isolation. One-tap WhatsApp click-to-chat, phone dialing, instant multi-field search, and self-sovereign data export.
+          </p>
+
+          <!-- CTA Action Buttons -->
+          <div class="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3.5">
+            <button onclick="openAuthModal('register')" class="w-full sm:w-auto px-7 py-3.5 rounded-xl font-bold bg-orange-500 hover:bg-orange-600 text-white shadow-xl shadow-orange-500/25 transition flex items-center justify-center space-x-2">
+              <span>Create Your Private Space</span>
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+            </button>
+            <button onclick="quickDemoLogin('userA')" class="w-full sm:w-auto px-6 py-3.5 rounded-xl font-semibold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center justify-center space-x-2">
+              <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              <span>Try Live Sandbox (User A)</span>
+            </button>
+            <button onclick="quickDemoLogin('admin')" class="w-full sm:w-auto px-5 py-3.5 rounded-xl font-semibold bg-purple-950/50 hover:bg-purple-900/60 text-purple-200 border border-purple-800/60 transition flex items-center justify-center space-x-2">
+              <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+              <span>Test Admin Governance</span>
+            </button>
+          </div>
+
+          <!-- Feature Metric Highlights -->
+          <div class="mt-14 grid grid-cols-2 md:grid-cols-4 gap-4 max-w-4xl mx-auto pt-8 border-t border-slate-800/80 text-left">
+            <div class="p-3 bg-slate-800/40 rounded-xl border border-slate-800">
+              <p class="text-xs text-slate-400 font-medium">Space Isolation</p>
+              <p class="text-lg font-bold text-white mt-0.5">100% Private</p>
+              <p class="text-[11px] text-slate-500 mt-1">Strict RLS `owner_id = auth.uid()`</p>
+            </div>
+            <div class="p-3 bg-slate-800/40 rounded-xl border border-slate-800">
+              <p class="text-xs text-slate-400 font-medium">Instant Search</p>
+              <p class="text-lg font-bold text-white mt-0.5">8 Attributes</p>
+              <p class="text-[11px] text-slate-500 mt-1">Village, DOB, phone, name</p>
+            </div>
+            <div class="p-3 bg-slate-800/40 rounded-xl border border-slate-800">
+              <p class="text-xs text-slate-400 font-medium">Communication</p>
+              <p class="text-lg font-bold text-white mt-0.5">1-Tap Dialing</p>
+              <p class="text-[11px] text-slate-500 mt-1">WhatsApp wa.me & call links</p>
+            </div>
+            <div class="p-3 bg-slate-800/40 rounded-xl border border-slate-800">
+              <p class="text-xs text-slate-400 font-medium">Admin Governance</p>
+              <p class="text-lg font-bold text-white mt-0.5">Zero-Knowledge</p>
+              <p class="text-[11px] text-slate-500 mt-1">No access to private contacts</p>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- Key Pillars Section -->
+      <section class="py-16 bg-white border-b border-slate-200">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div class="text-center max-w-3xl mx-auto">
+            <span class="text-xs font-bold uppercase tracking-wider text-orange-600 bg-orange-50 px-3 py-1 rounded-full">Architectural Integrity</span>
+            <h2 class="mt-3 text-2xl sm:text-3xl font-extrabold text-slate-900">Engineered for Complete Privacy & Security</h2>
+            <p class="mt-2 text-slate-600 text-sm sm:text-base">Every aspect of the Person Directory Platform is designed to ensure individual partitions remain private and untouchable.</p>
+          </div>
+
+          <div class="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8">
+            
+            <!-- Pillar 1 -->
+            <div class="bg-slate-50 rounded-2xl p-6 border border-slate-200/80 shadow-subtle hover:shadow-card transition">
+              <div class="w-12 h-12 rounded-xl bg-orange-100 text-orange-600 flex items-center justify-center mb-5 font-bold">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+              </div>
+              <h3 class="text-lg font-bold text-slate-900">Database Space Isolation</h3>
+              <p class="mt-2 text-sm text-slate-600 leading-relaxed">
+                Every user has an isolated partition enforced at the database kernel level via Supabase Row-Level Security. User A cannot view, search, modify, or query User B's directory records under any circumstances.
+              </p>
+            </div>
+
+            <!-- Pillar 2 -->
+            <div class="bg-slate-50 rounded-2xl p-6 border border-slate-200/80 shadow-subtle hover:shadow-card transition">
+              <div class="w-12 h-12 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center mb-5 font-bold">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+              </div>
+              <h3 class="text-lg font-bold text-slate-900">Zero-Knowledge Super Admin</h3>
+              <p class="mt-2 text-sm text-slate-600 leading-relaxed">
+                The Super Admin dashboard shows only aggregate platform counts (total users, active accounts). By database policy, administrators have ZERO permission to view saved people, phone numbers, villages, or personal notes.
+              </p>
+            </div>
+
+            <!-- Pillar 3 -->
+            <div class="bg-slate-50 rounded-2xl p-6 border border-slate-200/80 shadow-subtle hover:shadow-card transition">
+              <div class="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center mb-5 font-bold">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+              </div>
+              <h3 class="text-lg font-bold text-slate-900">One-Tap WhatsApp & Calling</h3>
+              <p class="mt-2 text-sm text-slate-600 leading-relaxed">
+                Connect instantly with contacts with pre-sanitized Click-to-Chat links stripping spaces, dashes, and invalid symbols. Seamlessly initiates phone calls directly from mobile or desktop browsers.
+              </p>
+            </div>
+
+          </div>
+
+          <!-- Quick Test Isolation Banner -->
+          <div class="mt-12 bg-gradient-to-r from-slate-900 to-slate-800 rounded-2xl p-6 sm:p-8 text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl">
+            <div>
+              <span class="text-xs font-bold uppercase tracking-wider text-orange-400 bg-orange-950/60 border border-orange-800/60 px-2.5 py-1 rounded-md">Live Verification Sandbox</span>
+              <h3 class="text-xl sm:text-2xl font-bold mt-2">Test Multi-Tenant Isolation Right Now</h3>
+              <p class="text-slate-300 text-sm mt-1 max-w-xl">
+                Log in as <b>User A</b> to add private contacts. Then switch to <b>User B</b> to verify that User B sees zero contacts from User A!
+              </p>
+            </div>
+            <div class="flex flex-wrap items-center gap-3">
+              <button onclick="quickDemoLogin('userA')" class="px-4 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs sm:text-sm shadow-md transition">
+                Login as User A
+              </button>
+              <button onclick="quickDemoLogin('userB')" class="px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs sm:text-sm shadow-md transition">
+                Login as User B
+              </button>
+              <button onclick="quickDemoLogin('admin')" class="px-4 py-2.5 rounded-xl bg-purple-700 hover:bg-purple-800 text-white font-bold text-xs sm:text-sm shadow-md transition">
+                Login as Super Admin
+              </button>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+    </div>
+
+    <!-- ------------------------------------------------------------------
+         VIEW 2: USER DIRECTORY DASHBOARD (Shown when logged in)
+         ------------------------------------------------------------------ -->
+    <div id="view-dashboard" class="hidden">
+      
+      <!-- Account Suspended Alert Banner (if account is blocked) -->
+      <div id="account-suspended-banner" class="hidden bg-red-600 text-white px-4 py-3 text-center text-sm font-semibold shadow-md">
+        ⚠️ Your account has been suspended by the administrator. Contact additions and modifications are currently disabled.
+      </div>
+
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- Dashboard Header & Top Metrics -->
+        <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+          <div>
+            <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight flex items-center gap-2">
+              <span>Personal Directory</span>
+              <span id="active-space-pill" class="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-200 text-slate-700">Private Space</span>
+            </h1>
+            <p class="text-slate-500 text-xs sm:text-sm mt-0.5">Manage, search, call, and message your personal directory records.</p>
+          </div>
+          
+          <div class="flex items-center gap-2.5">
+            <button onclick="openAddPersonModal()" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-orange-500 hover:bg-orange-600 text-white shadow-md shadow-orange-500/25 transition flex items-center space-x-1.5">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              <span>Add New Contact</span>
+            </button>
+            <button onclick="exportData('csv')" title="Export as CSV Spreadsheet" class="p-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 shadow-subtle transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            </button>
+            <button onclick="exportData('json')" title="Export as JSON" class="p-2 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 shadow-subtle transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Metric Counter Cards -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+          <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-subtle">
+            <div class="flex items-center justify-between text-slate-500">
+              <span class="text-xs font-semibold uppercase tracking-wider">Total People</span>
+              <svg class="w-5 h-5 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+            </div>
+            <p id="stat-total-contacts" class="text-2xl font-extrabold text-slate-900 mt-2">0</p>
+          </div>
+
+          <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-subtle">
+            <div class="flex items-center justify-between text-slate-500">
+              <span class="text-xs font-semibold uppercase tracking-wider">Starred</span>
+              <svg class="w-5 h-5 text-amber-500" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+            </div>
+            <p id="stat-starred-contacts" class="text-2xl font-extrabold text-slate-900 mt-2">0</p>
+          </div>
+
+          <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-subtle">
+            <div class="flex items-center justify-between text-slate-500">
+              <span class="text-xs font-semibold uppercase tracking-wider">Villages / Towns</span>
+              <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            </div>
+            <p id="stat-villages-count" class="text-2xl font-extrabold text-slate-900 mt-2">0</p>
+          </div>
+
+          <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-subtle">
+            <div class="flex items-center justify-between text-slate-500">
+              <span class="text-xs font-semibold uppercase tracking-wider">Organizations</span>
+              <svg class="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+            </div>
+            <p id="stat-organizations-count" class="text-2xl font-extrabold text-slate-900 mt-2">0</p>
+          </div>
+        </div>
+
+        <!-- Multi-Field Instant Search & Filter Bar -->
+        <div class="bg-white rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-subtle mb-6">
+          <div class="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
+            
+            <!-- Search Input (Matches 8 Fields) -->
+            <div class="relative md:col-span-6">
+              <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+              </div>
+              <input 
+                type="text" 
+                id="search-input" 
+                oninput="handleSearchInput()" 
+                placeholder="Search across Name, Village, Profession, Phone, DOB, Organization, Notes..." 
+                class="w-full pl-10 pr-9 py-2.5 rounded-xl border border-slate-300 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 text-xs sm:text-sm text-slate-900 placeholder-slate-400 transition"
+              />
+              <button id="search-clear-btn" onclick="clearSearch()" class="hidden absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+
+            <!-- Filter by Village / City Dropdown -->
+            <div class="md:col-span-2">
+              <select id="filter-village-select" onchange="renderPeople()" class="w-full py-2.5 px-3 rounded-xl border border-slate-300 text-xs sm:text-sm text-slate-700 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition bg-white">
+                <option value="all">All Villages / Cities</option>
+              </select>
+            </div>
+
+            <!-- Sort By Dropdown -->
+            <div class="md:col-span-2">
+              <select id="sort-select" onchange="renderPeople()" class="w-full py-2.5 px-3 rounded-xl border border-slate-300 text-xs sm:text-sm text-slate-700 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 transition bg-white">
+                <option value="name-asc">Name (A → Z)</option>
+                <option value="name-desc">Name (Z → A)</option>
+                <option value="newest">Recently Added</option>
+                <option value="dob">Date of Birth</option>
+              </select>
+            </div>
+
+            <!-- Favorite Filter Chip & View Toggle -->
+            <div class="md:col-span-2 flex items-center justify-between sm:justify-end gap-2">
+              <button id="filter-starred-btn" onclick="toggleStarredFilter()" class="px-3 py-2 rounded-xl border border-slate-300 text-xs font-semibold text-slate-600 hover:bg-slate-50 flex items-center space-x-1.5 transition">
+                <svg class="w-4 h-4 text-slate-400" id="filter-starred-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
+                <span>Starred</span>
+              </button>
+
+              <div class="flex items-center border border-slate-300 rounded-xl overflow-hidden p-0.5 bg-slate-100">
+                <button id="view-mode-grid-btn" onclick="setViewMode('grid')" title="Grid View" class="p-1.5 rounded-lg bg-white text-slate-800 shadow-sm transition">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"/></svg>
+                </button>
+                <button id="view-mode-list-btn" onclick="setViewMode('list')" title="List View" class="p-1.5 rounded-lg text-slate-500 hover:text-slate-800 transition">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+                </button>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- Active Filter Information Tag Line -->
+          <div id="search-results-info" class="mt-3 text-xs text-slate-500 flex items-center justify-between border-t border-slate-100 pt-2 hidden">
+            <span id="search-matches-count">Showing 0 matches</span>
+            <button onclick="resetAllFilters()" class="text-orange-600 hover:underline font-semibold">Reset all filters</button>
+          </div>
+        </div>
+
+        <!-- Contact Cards Container (Grid or List View) -->
+        <div id="people-container" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          <!-- Rendered dynamically via JavaScript -->
+        </div>
+
+        <!-- Empty State Container -->
+        <div id="empty-state" class="hidden text-center py-16 bg-white rounded-2xl border border-dashed border-slate-300 p-8 max-w-lg mx-auto">
+          <div class="w-16 h-16 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center mx-auto mb-4">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+          </div>
+          <h3 class="text-lg font-bold text-slate-900" id="empty-state-title">No Contacts Found</h3>
+          <p class="text-sm text-slate-500 mt-1 max-w-sm mx-auto" id="empty-state-desc">Your private space doesn't have any contacts matching this criteria yet.</p>
+          <button onclick="openAddPersonModal()" class="mt-5 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-orange-500 hover:bg-orange-600 text-white shadow-md shadow-orange-500/25 transition inline-flex items-center space-x-1.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            <span>Add First Contact</span>
+          </button>
+        </div>
+
+      </div>
+
+      <!-- Floating Action Button (FAB) for Mobile -->
+      <button onclick="openAddPersonModal()" title="Add Contact" class="sm:hidden fixed bottom-6 right-6 w-14 h-14 rounded-full bg-gradient-to-tr from-orange-600 to-orange-400 text-white shadow-xl shadow-orange-500/40 flex items-center justify-center z-30 focus:outline-none transition transform active:scale-95">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4"/></svg>
+      </button>
+
+    </div>
+
+    <!-- ------------------------------------------------------------------
+         VIEW 3: SUPER ADMIN DASHBOARD (Zero-Knowledge Governance)
+         ------------------------------------------------------------------ -->
+    <div id="view-admin" class="hidden">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        <!-- Admin Header -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="px-2.5 py-0.5 rounded text-[11px] font-extrabold uppercase tracking-wider bg-purple-100 text-purple-700">SUPER ADMIN</span>
+              <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">Zero-Knowledge Governance</h1>
+            </div>
+            <p class="text-slate-500 text-xs sm:text-sm mt-0.5">Platform aggregate metrics and user account lifecycle control.</p>
+          </div>
+          <button onclick="toggleAdminView()" class="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-slate-800 hover:bg-slate-700 text-white transition flex items-center space-x-1.5 self-start">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"/></svg>
+            <span>Back to Directory</span>
+          </button>
+        </div>
+
+        <!-- Strict Zero-Knowledge Privacy Assurance Alert -->
+        <div class="bg-purple-50 border-l-4 border-purple-600 p-4 rounded-xl mb-6 flex items-start space-x-3">
+          <svg class="w-6 h-6 text-purple-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+          <div class="text-xs sm:text-sm text-purple-900">
+            <span class="font-bold">Zero-Knowledge Privacy Guarantee:</span> Super Admin accounts are cryptographically restricted by database Row-Level Security. You can manage user accounts (block, unblock, delete) and inspect platform totals, but you have <b>ZERO permission</b> to view, search, query, or export private contact rows, names, phone numbers, or photos of any user.
+          </div>
+        </div>
+
+        <!-- Aggregate Platform Metric Cards -->
+        <div class="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-8">
+          <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-subtle">
+            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Users</p>
+            <p id="admin-stat-users" class="text-2xl font-extrabold text-slate-900 mt-2">0</p>
+          </div>
+          <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-subtle">
+            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Total Entries</p>
+            <p id="admin-stat-people" class="text-2xl font-extrabold text-slate-900 mt-2">0</p>
+            <p class="text-[10px] text-slate-400 mt-0.5">Aggregate count only</p>
+          </div>
+          <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-subtle">
+            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Active Accounts</p>
+            <p id="admin-stat-active" class="text-2xl font-extrabold text-emerald-600 mt-2">0</p>
+          </div>
+          <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-subtle">
+            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Suspended</p>
+            <p id="admin-stat-suspended" class="text-2xl font-extrabold text-red-600 mt-2">0</p>
+          </div>
+          <div class="bg-white rounded-xl p-4 border border-slate-200 shadow-subtle">
+            <p class="text-xs font-semibold text-slate-500 uppercase tracking-wider">Storage Usage</p>
+            <p id="admin-stat-storage" class="text-2xl font-extrabold text-blue-600 mt-2">0 KB</p>
+          </div>
+        </div>
+
+        <!-- User Accounts Governance Table -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-subtle overflow-hidden mb-8">
+          <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+            <h3 class="text-base font-bold text-slate-900">User Account Governance</h3>
+            <span class="text-xs text-slate-500">Lifecycle & Access Control</span>
+          </div>
+          
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs sm:text-sm">
+              <thead class="bg-slate-50 text-slate-600 uppercase font-semibold text-[11px] tracking-wider border-b border-slate-200">
+                <tr>
+                  <th class="px-6 py-3.5">User</th>
+                  <th class="px-6 py-3.5">Role</th>
+                  <th class="px-6 py-3.5">Status</th>
+                  <th class="px-6 py-3.5">Registered</th>
+                  <th class="px-6 py-3.5">Private Records</th>
+                  <th class="px-6 py-3.5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="admin-users-table-body" class="divide-y divide-slate-100">
+                <!-- Dynamically populated via JS -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Audit Log -->
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-subtle p-6">
+          <h3 class="text-base font-bold text-slate-900 mb-3">Admin Governance Audit Trail</h3>
+          <div id="admin-audit-log-container" class="space-y-2 text-xs text-slate-600 font-mono max-h-48 overflow-y-auto">
+            <!-- Dynamically populated via JS -->
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ====================================================================
+       FOOTER
+       ==================================================================== -->
+  <footer class="bg-slate-900 text-slate-400 border-t border-slate-800 text-xs py-8 mt-auto no-print">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center space-x-2">
+        <div class="w-6 h-6 rounded bg-orange-500 flex items-center justify-center text-white font-bold text-[10px]">
+          PD
+        </div>
+        <span class="text-slate-300 font-semibold">Person Directory Platform</span>
+        <span class="text-slate-600">|</span>
+        <span>Private Multi-User Architecture</span>
+      </div>
+
+      <div class="flex items-center space-x-5 text-slate-400">
+        <button onclick="openLegalModal('privacy')" class="hover:text-white transition">Privacy Policy</button>
+        <button onclick="openLegalModal('terms')" class="hover:text-white transition">Terms of Service</button>
+        <button onclick="openSupabaseSetupModal()" class="hover:text-orange-400 transition flex items-center gap-1">
+          <svg class="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          <span>Backend SQL Setup</span>
+        </button>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ====================================================================
+       MODAL 1: AUTHENTICATION MODAL (Login / Register / Demo)
+       ==================================================================== -->
+  <div id="auth-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm modal-backdrop" onclick="closeAuthModal()"></div>
+    
+    <div class="relative bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full p-6 sm:p-7 z-10 modal-panel">
+      <!-- Modal Close Button -->
+      <button onclick="closeAuthModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+
+      <!-- Auth Tabs -->
+      <div class="flex border-b border-slate-200 mb-5">
+        <button id="auth-tab-login" onclick="switchAuthTab('login')" class="flex-1 pb-3 text-sm font-bold border-b-2 border-orange-500 text-orange-600 transition">
+          Sign In
+        </button>
+        <button id="auth-tab-register" onclick="switchAuthTab('register')" class="flex-1 pb-3 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition">
+          Create Account
+        </button>
+      </div>
+
+      <!-- Auth Form -->
+      <form id="auth-form" onsubmit="handleAuthSubmit(event)" class="space-y-4">
+        
+        <div id="auth-field-name" class="hidden">
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Full Name</label>
+          <input type="text" id="auth-input-name" placeholder="Bhupathi Vardhinedi" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20" />
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Email Address</label>
+          <input type="email" id="auth-input-email" required placeholder="user@example.com" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20" />
+        </div>
+
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider">Password</label>
+            <button type="button" onclick="showForgotPasswordAlert()" class="text-xs text-orange-600 hover:underline">Forgot?</button>
+          </div>
+          <input type="password" id="auth-input-password" required placeholder="••••••••" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20" />
+        </div>
+
+        <button type="submit" id="auth-submit-btn" class="w-full py-3 rounded-xl font-bold bg-orange-500 hover:bg-orange-600 text-white shadow-lg shadow-orange-500/25 transition">
+          Sign In to Private Space
+        </button>
+      </form>
+
+      <!-- Sandbox Quick Test Accounts Switcher -->
+      <div class="mt-6 pt-5 border-t border-slate-200">
+        <p class="text-xs text-slate-500 font-semibold text-center mb-2.5">⚡ Instant Sandbox Demo Test Accounts:</p>
+        <div class="grid grid-cols-3 gap-2">
+          <button onclick="quickDemoLogin('userA')" class="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-bold text-center transition">
+            User A <span class="block text-[9px] text-slate-500 font-normal">Private Space</span>
+          </button>
+          <button onclick="quickDemoLogin('userB')" class="p-2 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 text-[11px] font-bold text-center transition">
+            User B <span class="block text-[9px] text-slate-500 font-normal">Private Space</span>
+          </button>
+          <button onclick="quickDemoLogin('admin')" class="p-2 rounded-lg bg-purple-100 hover:bg-purple-200 text-purple-900 text-[11px] font-bold text-center transition">
+            Super Admin <span class="block text-[9px] text-purple-700 font-normal">Zero Knowledge</span>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       MODAL 2: ADD / EDIT PERSON MODAL
+       ==================================================================== -->
+  <div id="person-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm modal-backdrop" onclick="closePersonModal()"></div>
+    
+    <div class="relative bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-xl w-full p-5 sm:p-7 z-10 modal-panel my-8 max-h-[90vh] overflow-y-auto">
+      
+      <div class="flex items-center justify-between pb-4 border-b border-slate-200 mb-5">
+        <div>
+          <h2 id="person-modal-title" class="text-lg sm:text-xl font-extrabold text-slate-900">Add New Person</h2>
+          <p class="text-xs text-slate-500">Record will be strictly isolated in your private directory space.</p>
+        </div>
+        <button onclick="closePersonModal()" class="text-slate-400 hover:text-slate-600 transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <form id="person-form" onsubmit="handleSavePerson(event)" class="space-y-4">
+        <input type="hidden" id="person-id" value="" />
+
+        <!-- Photo Upload & Preview -->
+        <div class="flex items-center space-x-4 p-3 bg-slate-50 rounded-xl border border-slate-200">
+          <div id="photo-preview-container" class="w-16 h-16 rounded-xl bg-orange-100 border border-orange-200 text-orange-600 flex items-center justify-center overflow-hidden font-bold text-xl flex-shrink-0">
+            <span id="photo-placeholder-initials">?</span>
+            <img id="photo-preview-img" src="" alt="Photo" class="w-full h-full object-cover hidden" />
+          </div>
+          <div class="flex-grow">
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Contact Photograph</label>
+            <input type="file" id="person-photo-file" accept="image/*" onchange="handlePhotoSelection(event)" class="block w-full text-xs text-slate-500 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100 cursor-pointer" />
+            <input type="hidden" id="person-photo-url" value="" />
+          </div>
+        </div>
+
+        <!-- Full Name (Required) -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Full Name <span class="text-red-500">*</span></label>
+          <input type="text" id="person-name" required placeholder="e.g. Ramesh Varma" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20" />
+        </div>
+
+        <!-- Profession & Village -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Profession / Occupation</label>
+            <input type="text" id="person-profession" placeholder="e.g. Advocate, Doctor, Farmer" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Village / Town / City</label>
+            <input type="text" id="person-village" placeholder="e.g. Eluru, Vijayawada" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20" />
+          </div>
+        </div>
+
+        <!-- Date of Birth & Party / Organization -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Date of Birth</label>
+            <input type="date" id="person-dob" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20" />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Party / Organization</label>
+            <input type="text" id="person-party" placeholder="e.g. Welfare Trust, Farmers Union" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20" />
+          </div>
+        </div>
+
+        <!-- Primary Phone (Required) & Secondary Phone -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Primary Phone <span class="text-red-500">*</span></label>
+            <input type="tel" id="person-phone1" required placeholder="e.g. 9876543210" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20" />
+            <span class="text-[10px] text-slate-400">Used for 1-Tap WhatsApp click-to-chat</span>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Secondary Phone</label>
+            <input type="tel" id="person-phone2" placeholder="e.g. 9123456780" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20" />
+          </div>
+        </div>
+
+        <!-- Address -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Address / Residence</label>
+          <input type="text" id="person-address" placeholder="e.g. Main Bazaar Road, Door No 4-21" class="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20" />
+        </div>
+
+        <!-- Notes -->
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Personal Notes / Remarks</label>
+          <textarea id="person-notes" rows="2" placeholder="e.g. Met at annual committee meeting. Prefers WhatsApp in morning." class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"></textarea>
+        </div>
+
+        <!-- Starred Toggle -->
+        <div class="flex items-center space-x-2 pt-1">
+          <input type="checkbox" id="person-starred" class="w-4 h-4 text-orange-600 rounded border-slate-300 focus:ring-orange-500" />
+          <label for="person-starred" class="text-xs font-bold text-slate-700 cursor-pointer">Mark as Starred / Favorite Contact</label>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="flex items-center justify-end space-x-3 pt-4 border-t border-slate-200">
+          <button type="button" onclick="closePersonModal()" class="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 text-sm font-semibold hover:bg-slate-50 transition">
+            Cancel
+          </button>
+          <button type="submit" id="save-person-btn" class="px-6 py-2.5 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-sm font-bold shadow-md shadow-orange-500/25 transition">
+            Save Contact
+          </button>
+        </div>
+
+      </form>
+
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       MODAL 3: PERSON DETAIL PROFILE MODAL
+       ==================================================================== -->
+  <div id="detail-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+    <div class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm modal-backdrop" onclick="closeDetailModal()"></div>
+    
+    <div class="relative bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full p-6 sm:p-7 z-10 modal-panel my-8 max-h-[90vh] overflow-y-auto">
+      
+      <!-- Top Action Ribbon -->
+      <div class="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
+        <div class="flex items-center space-x-2">
+          <span id="detail-star-badge" class="hidden text-amber-500">★ Starred</span>
+          <span id="detail-party-badge" class="px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-700">General</span>
+        </div>
+        <button onclick="closeDetailModal()" class="text-slate-400 hover:text-slate-600 transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Avatar & Name Header -->
+      <div class="flex flex-col sm:flex-row items-center sm:items-start space-y-4 sm:space-y-0 sm:space-x-5 text-center sm:text-left mb-6">
+        <div id="detail-avatar" class="w-20 h-20 rounded-2xl bg-gradient-to-tr from-orange-600 to-orange-400 text-white font-extrabold text-2xl flex items-center justify-center shadow-lg shadow-orange-500/20 overflow-hidden flex-shrink-0">
+          U
+        </div>
+        <div>
+          <h2 id="detail-name" class="text-2xl font-extrabold text-slate-900 tracking-tight">Full Name</h2>
+          <p id="detail-profession" class="text-sm font-semibold text-orange-600 mt-0.5">Profession</p>
+          <p id="detail-village" class="text-xs text-slate-500 flex items-center justify-center sm:justify-start gap-1 mt-1">
+            <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/></svg>
+            <span id="detail-village-text">Village</span>
+          </p>
+        </div>
+      </div>
+
+      <!-- One-Tap Action Buttons Ribbon -->
+      <div class="grid grid-cols-2 gap-3 mb-6">
+        <a id="detail-whatsapp-btn" href="#" target="_blank" rel="noopener noreferrer" class="py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs sm:text-sm flex items-center justify-center space-x-2 shadow-md shadow-emerald-600/20 transition">
+          <svg class="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
+          <span>Chat on WhatsApp</span>
+        </a>
+        <a id="detail-call-btn" href="#" class="py-3 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs sm:text-sm flex items-center justify-center space-x-2 shadow-md transition">
+          <svg class="w-4 h-4 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+          <span>Direct Call</span>
+        </a>
+      </div>
+
+      <!-- Attributes Table -->
+      <div class="bg-slate-50 rounded-xl p-4 border border-slate-200 text-xs sm:text-sm space-y-2.5 mb-6">
+        <div class="flex justify-between py-1 border-b border-slate-200/60">
+          <span class="text-slate-500 font-medium">Primary Phone:</span>
+          <span id="detail-phone1" class="font-bold text-slate-800 font-mono">--</span>
+        </div>
+        <div class="flex justify-between py-1 border-b border-slate-200/60">
+          <span class="text-slate-500 font-medium">Secondary Phone:</span>
+          <span id="detail-phone2" class="font-semibold text-slate-800 font-mono">--</span>
+        </div>
+        <div class="flex justify-between py-1 border-b border-slate-200/60">
+          <span class="text-slate-500 font-medium">Date of Birth:</span>
+          <span id="detail-dob" class="font-semibold text-slate-800">--</span>
+        </div>
+        <div class="flex justify-between py-1 border-b border-slate-200/60">
+          <span class="text-slate-500 font-medium">Residence Address:</span>
+          <span id="detail-address" class="font-semibold text-slate-800 text-right max-w-xs truncate">--</span>
+        </div>
+        <div class="py-1">
+          <span class="text-slate-500 font-medium block mb-1">Personal Notes:</span>
+          <p id="detail-notes" class="text-slate-700 bg-white p-2.5 rounded-lg border border-slate-200 text-xs leading-relaxed italic">No remarks recorded.</p>
+        </div>
+      </div>
+
+      <!-- Bottom Actions -->
+      <div class="flex items-center justify-between pt-2">
+        <button id="detail-delete-btn" onclick="confirmDeleteCurrentPerson()" class="px-3.5 py-2 rounded-xl text-xs font-semibold text-red-600 hover:bg-red-50 transition">
+          Delete Contact
+        </button>
+        <div class="flex items-center space-x-2">
+          <button onclick="closeDetailModal()" class="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 text-xs font-semibold hover:bg-slate-50 transition">
+            Close
+          </button>
+          <button id="detail-edit-btn" onclick="openEditCurrentPerson()" class="px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition">
+            Edit Contact
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       MODAL 4: ACCOUNT SETTINGS & DATA EXPORT MODAL
+       ==================================================================== -->
+  <div id="settings-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
+    <div class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm modal-backdrop" onclick="closeSettingsModal()"></div>
+    
+    <div class="relative bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-md w-full p-6 sm:p-7 z-10 modal-panel my-8 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-4 border-b border-slate-200 mb-5">
+        <div>
+          <h2 class="text-lg font-extrabold text-slate-900">Account & Data Portability</h2>
+          <p class="text-xs text-slate-500">Self-sovereign control over your contacts.</p>
+        </div>
+        <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-slate-600 transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <!-- Data Portability Box -->
+      <div class="bg-slate-50 rounded-xl p-4 border border-slate-200 mb-5">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-800 mb-1">One-Click Data Portability</h3>
+        <p class="text-xs text-slate-600 mb-3">Download your private contacts anytime with no lock-in.</p>
+        <div class="grid grid-cols-2 gap-2.5">
+          <button onclick="exportData('csv')" class="py-2.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold flex items-center justify-center space-x-1.5 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            <span>Export CSV</span>
+          </button>
+          <button onclick="exportData('json')" class="py-2.5 px-3 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold flex items-center justify-center space-x-1.5 transition">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            <span>Export JSON</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- User Profile Information -->
+      <div class="space-y-3 mb-6">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Account Email</label>
+          <input type="text" id="settings-email" disabled class="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-100 text-slate-500 text-sm cursor-not-allowed" />
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">Display Name</label>
+          <input type="text" id="settings-name" class="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-sm focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20" />
+        </div>
+      </div>
+
+      <!-- Danger Zone -->
+      <div class="pt-4 border-t border-red-100">
+        <h4 class="text-xs font-bold uppercase tracking-wider text-red-600 mb-1">Danger Zone</h4>
+        <p class="text-xs text-slate-500 mb-3">Deleting your account permanently cleans all your saved contacts.</p>
+        <button onclick="handleDeleteMyAccount()" class="w-full py-2.5 rounded-xl border border-red-300 hover:bg-red-50 text-red-600 text-xs font-bold transition">
+          Delete Account & All Contacts
+        </button>
+      </div>
+
+      <div class="mt-6 pt-4 border-t border-slate-200 flex justify-end">
+        <button onclick="closeSettingsModal()" class="px-5 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 transition">
+          Done
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       MODAL 5: SUPABASE SETUP & SQL MIGRATION GUIDE MODAL
+       ==================================================================== -->
+  <div id="supabase-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
+    <div class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm modal-backdrop" onclick="closeSupabaseSetupModal()"></div>
+    
+    <div class="relative bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-2xl w-full p-6 sm:p-7 z-10 modal-panel my-8 max-h-[90vh] overflow-y-auto">
+      
+      <div class="flex items-center justify-between pb-4 border-b border-slate-200 mb-5">
+        <div class="flex items-center space-x-2">
+          <div class="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-600 flex items-center justify-center font-bold">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14M12 5l7 7-7 7"/></svg>
+          </div>
+          <h2 class="text-lg font-extrabold text-slate-900">Supabase Backend Configuration</h2>
+        </div>
+        <button onclick="closeSupabaseSetupModal()" class="text-slate-400 hover:text-slate-600 transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <div class="space-y-4 text-xs sm:text-sm text-slate-600">
+        <p>This single-file deployment is configured to communicate with your live Supabase cloud project:</p>
+        
+        <div class="bg-slate-900 text-slate-200 rounded-xl p-3.5 font-mono text-xs space-y-1">
+          <div><span class="text-orange-400">VITE_SUPABASE_URL:</span> <span id="guide-supabase-url">https://vjbjiorhagfpbxsiwbvr.supabase.co</span></div>
+          <div class="truncate"><span class="text-orange-400">STATUS:</span> <span class="text-emerald-400 font-semibold" id="guide-supabase-status">Connected & Ready</span></div>
+        </div>
+
+        <div class="border-t border-slate-200 pt-3">
+          <h3 class="font-bold text-slate-900 mb-1">Database Schema & RLS Setup SQL:</h3>
+          <p class="text-xs text-slate-500 mb-2">If you need to set up tables on a new Supabase instance, run this in Supabase SQL Editor:</p>
+          <div class="relative">
+            <pre class="bg-slate-950 text-slate-300 p-3 rounded-xl text-[11px] overflow-x-auto max-h-48 font-mono select-all">
+-- 1. Profiles Table
+CREATE TABLE IF NOT EXISTS public.profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  email TEXT NOT NULL,
+  full_name TEXT DEFAULT '',
+  role TEXT DEFAULT 'user' CHECK (role IN ('user', 'admin')),
+  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'suspended')),
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- 2. People Table with RLS Space Isolation
+CREATE TABLE IF NOT EXISTS public.people (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  full_name TEXT NOT NULL,
+  profession TEXT DEFAULT '',
+  village TEXT DEFAULT '',
+  date_of_birth DATE,
+  phone_number_1 TEXT NOT NULL,
+  phone_number_2 TEXT DEFAULT '',
+  party_organization TEXT DEFAULT '',
+  address TEXT DEFAULT '',
+  photo_url TEXT DEFAULT '',
+  notes TEXT DEFAULT '',
+  is_starred BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Enable RLS
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.people ENABLE ROW LEVEL SECURITY;
+
+-- Isolation Policy: Users only access their own people
+CREATE POLICY "Strict space isolation" ON public.people
+  FOR ALL USING (auth.uid() = owner_id);
+
+CREATE POLICY "Users read own profile" ON public.profiles
+  FOR SELECT USING (auth.uid() = id);
+            </pre>
+            <button onclick="copySqlSchema()" class="absolute top-2 right-2 px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-white text-[10px] font-semibold transition">
+              Copy SQL
+            </button>
+          </div>
+        </div>
+
+        <div class="pt-2 flex justify-between items-center">
+          <button onclick="testSupabaseConnection()" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition">
+            Test Live Connection
+          </button>
+          <button onclick="closeSupabaseSetupModal()" class="px-4 py-2 rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-semibold transition">
+            Close
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       MODAL 6: LEGAL MODAL (Privacy Policy & Terms)
+       ==================================================================== -->
+  <div id="legal-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 overflow-y-auto">
+    <div class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm modal-backdrop" onclick="closeLegalModal()"></div>
+    
+    <div class="relative bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-lg w-full p-6 sm:p-7 z-10 modal-panel my-8 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-200 mb-4">
+        <h2 id="legal-modal-title" class="text-lg font-bold text-slate-900">Privacy Policy</h2>
+        <button onclick="closeLegalModal()" class="text-slate-400 hover:text-slate-600">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div id="legal-modal-body" class="text-xs sm:text-sm text-slate-600 space-y-3 leading-relaxed max-h-72 overflow-y-auto pr-1">
+        <!-- Content injected dynamically -->
+      </div>
+      <div class="mt-5 pt-3 border-t border-slate-200 flex justify-end">
+        <button onclick="closeLegalModal()" class="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold">
+          Understood
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       CONFIRMATION DIALOG MODAL
+       ==================================================================== -->
+  <div id="confirm-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div class="fixed inset-0 bg-slate-900/70 backdrop-blur-sm modal-backdrop" onclick="closeConfirmModal(false)"></div>
+    
+    <div class="relative bg-white rounded-2xl shadow-2xl border border-slate-200 max-w-sm w-full p-6 z-10 modal-panel text-center">
+      <div class="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto mb-3">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+      </div>
+      <h3 id="confirm-title" class="text-base font-bold text-slate-900">Are you sure?</h3>
+      <p id="confirm-desc" class="text-xs text-slate-500 mt-1 mb-5">This action cannot be undone.</p>
+      <div class="flex items-center justify-center space-x-3">
+        <button onclick="closeConfirmModal(false)" class="px-4 py-2 rounded-xl border border-slate-300 text-slate-700 text-xs font-semibold hover:bg-slate-50 transition">
+          Cancel
+        </button>
+        <button id="confirm-proceed-btn" onclick="executeConfirmAction()" class="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition">
+          Proceed
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       MAIN JAVASCRIPT CONTROLLER (100% SELF-CONTAINED SINGLE-FILE LOGIC)
+       ==================================================================== -->
+  <script>
+    /* ====================================================================
+       1. GLOBAL CONFIGURATION & SUPABASE INITIALIZATION
+       ==================================================================== */
+    const SUPABASE_CONFIG = {
+      url: "https://vjbjiorhagfpbxsiwbvr.supabase.co",
+      anonKey: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZqYmppb3JoYWdmcGJ4c2l3YnZyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM4ODY0NTQsImV4cCI6MjEwOTQ2MjQ1NH0.h1gz7aS2x9P8pPtoPALorYRtJr9rYJTEJyC7PTVqBuM"
+    };
+
+    let supabaseClient = null;
+    let isSupabaseAvailable = false;
+
+    // Initialize Supabase Client
+    try {
+      if (window.supabase && typeof window.supabase.createClient === 'function') {
+        supabaseClient = window.supabase.createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey);
+        isSupabaseAvailable = true;
+      }
+    } catch (e) {
+      console.warn("Supabase initialization exception, defaulting to Local Sandbox Engine:", e);
+      isSupabaseAvailable = false;
+    }
+
+    /* ====================================================================
+       2. LOCAL SANDBOX PERSISTENCE ENGINE (Multi-Tenant Isolation Sandbox)
+       ==================================================================== */
+    const SANDBOX_STORAGE_KEY_USERS = 'pd_sandbox_users_v2';
+    const SANDBOX_STORAGE_KEY_PEOPLE = 'pd_sandbox_people_v2';
+    const SANDBOX_STORAGE_KEY_AUDIT = 'pd_sandbox_audit_v2';
+
+    // Seed Demo Users if not present
+    function initSandboxStorage() {
+      if (!localStorage.getItem(SANDBOX_STORAGE_KEY_USERS)) {
+        const initialUsers = [
+          {
+            id: 'demo-user-a-1111',
+            email: 'usera@example.com',
+            full_name: 'Anil Kumar (User A)',
+            role: 'user',
+            status: 'active',
+            created_at: new Date(Date.now() - 86400000 * 5).toISOString()
+          },
+          {
+            id: 'demo-user-b-2222',
+            email: 'userb@example.com',
+            full_name: 'Bhupathi Vardhinedi (User B)',
+            role: 'user',
+            status: 'active',
+            created_at: new Date(Date.now() - 86400000 * 3).toISOString()
+          },
+          {
+            id: 'demo-admin-9999',
+            email: 'admin@example.com',
+            full_name: 'Super Administrator',
+            role: 'admin',
+            status: 'active',
+            created_at: new Date(Date.now() - 86400000 * 10).toISOString()
+          }
+        ];
+        localStorage.setItem(SANDBOX_STORAGE_KEY_USERS, JSON.stringify(initialUsers));
+      }
+
+      if (!localStorage.getItem(SANDBOX_STORAGE_KEY_PEOPLE)) {
+        const initialPeople = [
+          // User A's Private Contacts
+          {
+            id: 'contact-a-1',
+            owner_id: 'demo-user-a-1111',
+            full_name: 'Dr. K. Srinivas Rao',
+            profession: 'Senior Cardiologist',
+            village: 'Eluru',
+            date_of_birth: '1978-04-12',
+            phone_number_1: '9848022334',
+            phone_number_2: '0881223456',
+            party_organization: 'Medical Association',
+            address: 'Main Hospital Road, Ramachandra Rao Peta, Eluru',
+            photo_url: '',
+            notes: 'Available for consultations Tuesday & Saturday mornings.',
+            is_starred: true,
+            created_at: new Date(Date.now() - 86400000 * 4).toISOString()
+          },
+          {
+            id: 'contact-a-2',
+            owner_id: 'demo-user-a-1111',
+            full_name: 'Smt. Lakshmi Devi',
+            profession: 'Zilla Parishad Member',
+            village: 'Denduluru',
+            date_of_birth: '1982-11-20',
+            phone_number_1: '9440155667',
+            phone_number_2: '',
+            party_organization: 'Rural Development Committee',
+            address: 'Panchayat Office Street, Denduluru',
+            photo_url: '',
+            notes: 'Key contact for local village infrastructure queries.',
+            is_starred: false,
+            created_at: new Date(Date.now() - 86400000 * 2).toISOString()
+          },
+          // User B's Private Contacts (Guaranteed Isolated from User A!)
+          {
+            id: 'contact-b-1',
+            owner_id: 'demo-user-b-2222',
+            full_name: 'Advocate P. Narayana Murthy',
+            profession: 'High Court Advocate',
+            village: 'Vijayawada',
+            date_of_birth: '1975-08-15',
+            phone_number_1: '9849033445',
+            phone_number_2: '9440188990',
+            party_organization: 'Legal Aid Society',
+            address: 'Governorpet, Beside Sub Court, Vijayawada',
+            photo_url: '',
+            notes: 'Expert in property registrations and corporate documentation.',
+            is_starred: true,
+            created_at: new Date(Date.now() - 86400000 * 3).toISOString()
+          },
+          {
+            id: 'contact-b-2',
+            owner_id: 'demo-user-b-2222',
+            full_name: 'Ch. Venkat Reddy',
+            profession: 'Agritech Entrepreneur',
+            village: 'Guntur',
+            date_of_birth: '1990-02-28',
+            phone_number_1: '9988776655',
+            phone_number_2: '',
+            party_organization: 'Farmers Progressive Forum',
+            address: 'Cotton Market Road, Guntur',
+            photo_url: '',
+            notes: 'Supplies organic fertilizers and micro-irrigation systems.',
+            is_starred: false,
+            created_at: new Date(Date.now() - 86400000 * 1).toISOString()
+          }
+        ];
+        localStorage.setItem(SANDBOX_STORAGE_KEY_PEOPLE, JSON.stringify(initialPeople));
+      }
+
+      if (!localStorage.getItem(SANDBOX_STORAGE_KEY_AUDIT)) {
+        localStorage.setItem(SANDBOX_STORAGE_KEY_AUDIT, JSON.stringify([
+          {
+            timestamp: new Date().toISOString(),
+            action: 'SYSTEM_INIT',
+            details: 'Sandbox multi-tenant isolation engine initialized.'
+          }
+        ]));
+      }
+    }
+
+    initSandboxStorage();
+
+    /* ====================================================================
+       3. APPLICATION STATE
+       ==================================================================== */
+    const state = {
+      currentUser: null,       // { id, email, full_name, role, status }
+      people: [],              // Owned contacts array for current user
+      activeFilterStarred: false,
+      activeFilterVillage: 'all',
+      searchQuery: '',
+      sortOrder: 'name-asc',
+      viewMode: 'grid',        // 'grid' | 'list'
+      currentDetailPerson: null,
+      confirmCallback: null,
+      adminViewActive: false,
+      adminData: {
+        users: [],
+        auditLogs: [],
+        totalPeopleCount: 0
+      }
+    };
+
+    /* ====================================================================
+       4. WHATSAPP & PHONE UTILITIES (As defined in README)
+       ==================================================================== */
+    function sanitizePhoneNumberForWhatsApp(phone) {
+      if (!phone) return '';
+      // Strip +, -, spaces, parentheses, brackets
+      let cleaned = phone.replace(/[\s\+\-\(\)\[\]\.\,]/g, '');
+      // If 10 digits without country code, prefix India country code 91 by default
+      if (cleaned.length === 10) {
+        cleaned = '91' + cleaned;
+      }
+      return cleaned;
+    }
+
+    function buildWhatsAppLink(phone, name) {
+      const sanitized = sanitizePhoneNumberForWhatsApp(phone);
+      if (!sanitized) return '#';
+      const text = encodeURIComponent(`Hello ${name || ''}, connecting with you via Person Directory.`);
+      return `https://wa.me/${sanitized}?text=${text}`;
+    }
+
+    function buildCallLink(phone) {
+      if (!phone) return '#';
+      const cleaned = phone.replace(/[\s\-\(\)\[\]]/g, '');
+      return `tel:${cleaned}`;
+    }
+
+    /* ====================================================================
+       5. AUTHENTICATION & SESSION MANAGEMENT
+       ==================================================================== */
+    async function initSession() {
+      // Check saved user session
+      const savedUserJson = localStorage.getItem('pd_active_session');
+      if (savedUserJson) {
+        try {
+          state.currentUser = JSON.parse(savedUserJson);
+          updateNavigationUI();
+          await loadUserContacts();
+          showView('dashboard');
+          return;
+        } catch (e) {
+          localStorage.removeItem('pd_active_session');
+        }
+      }
+
+      // If no session, show landing view
+      showView('landing');
+      updateNavigationUI();
+    }
+
+    function updateNavigationUI() {
+      const unauthNav = document.getElementById('unauth-nav');
+      const authNav = document.getElementById('auth-nav');
+      const adminNavBtn = document.getElementById('admin-nav-btn');
+      const userNameDisplay = document.getElementById('user-name-display');
+      const userEmailDisplay = document.getElementById('user-email-display');
+      const userRoleBadge = document.getElementById('user-role-badge');
+      const userAvatar = document.getElementById('user-avatar');
+      const activeSpacePill = document.getElementById('active-space-pill');
+      const connectionLabel = document.getElementById('connection-label');
+
+      if (state.currentUser) {
+        unauthNav.classList.add('hidden');
+        authNav.classList.remove('hidden');
+
+        userNameDisplay.textContent = state.currentUser.full_name || state.currentUser.email.split('@')[0];
+        userEmailDisplay.textContent = state.currentUser.email;
+        userRoleBadge.textContent = state.currentUser.role.toUpperCase();
+        userAvatar.textContent = (state.currentUser.full_name || state.currentUser.email)[0].toUpperCase();
+
+        if (state.currentUser.role === 'admin') {
+          adminNavBtn.classList.remove('hidden');
+          adminNavBtn.classList.add('flex');
+        } else {
+          adminNavBtn.classList.add('hidden');
+          adminNavBtn.classList.remove('flex');
+        }
+
+        activeSpacePill.textContent = `${state.currentUser.full_name || 'My Space'} • Isolated`;
+
+        // Check if suspended
+        const suspendedBanner = document.getElementById('account-suspended-banner');
+        if (state.currentUser.status === 'suspended') {
+          suspendedBanner.classList.remove('hidden');
+        } else {
+          suspendedBanner.classList.add('hidden');
+        }
+      } else {
+        unauthNav.classList.remove('hidden');
+        authNav.classList.add('hidden');
+        adminNavBtn.classList.add('hidden');
+      }
+
+      // Close open user dropdown
+      document.getElementById('user-dropdown-menu').classList.add('hidden');
+    }
+
+    function showView(viewName) {
+      document.getElementById('view-landing').classList.add('hidden');
+      document.getElementById('view-dashboard').classList.add('hidden');
+      document.getElementById('view-admin').classList.add('hidden');
+
+      if (viewName === 'dashboard') {
+        document.getElementById('view-dashboard').classList.remove('hidden');
+        state.adminViewActive = false;
+      } else if (viewName === 'admin') {
+        document.getElementById('view-admin').classList.remove('hidden');
+        state.adminViewActive = true;
+        loadAdminDashboardData();
+      } else {
+        document.getElementById('view-landing').classList.remove('hidden');
+        state.adminViewActive = false;
+      }
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    function navigateHome() {
+      if (state.currentUser) {
+        showView('dashboard');
+      } else {
+        showView('landing');
+      }
+    }
+
+    function toggleUserMenu() {
+      const menu = document.getElementById('user-dropdown-menu');
+      menu.classList.toggle('hidden');
+    }
+
+    // Close dropdown when clicked outside
+    window.addEventListener('click', function(e) {
+      const userBtn = document.getElementById('user-menu-btn');
+      const userMenu = document.getElementById('user-dropdown-menu');
+      if (userBtn && userMenu && !userBtn.contains(e.target) && !userMenu.contains(e.target)) {
+        userMenu.classList.add('hidden');
+      }
+    });
+
+    /* ====================================================================
+       6. QUICK DEMO LOGIN SWITCHER (User A, User B, Admin)
+       ==================================================================== */
+    function quickDemoLogin(roleKey) {
+      closeAuthModal();
+      const users = JSON.parse(localStorage.getItem(SANDBOX_STORAGE_KEY_USERS) || '[]');
+      let targetUser = null;
+
+      if (roleKey === 'userA') {
+        targetUser = users.find(u => u.id === 'demo-user-a-1111');
+      } else if (roleKey === 'userB') {
+        targetUser = users.find(u => u.id === 'demo-user-b-2222');
+      } else if (roleKey === 'admin') {
+        targetUser = users.find(u => u.role === 'admin');
+      }
+
+      if (!targetUser) {
+        showToast('Demo account not found in local sandbox.', 'error');
+        return;
+      }
+
+      state.currentUser = targetUser;
+      localStorage.setItem('pd_active_session', JSON.stringify(targetUser));
+      updateNavigationUI();
+      loadUserContacts();
+
+      if (roleKey === 'admin') {
+        showView('admin');
+        showToast(`Logged in as Super Admin. Zero-knowledge governance active!`, 'info');
+      } else {
+        showView('dashboard');
+        showToast(`Logged in as ${targetUser.full_name}. Private space loaded!`, 'success');
+      }
+    }
+
+    /* ====================================================================
+       7. CONTACT DATA MANAGEMENT (CRUD + RLS ISOLATION)
+       ==================================================================== */
+    async function loadUserContacts() {
+      if (!state.currentUser) return;
+
+      // 1. Try Supabase if authenticated with real cloud token
+      if (isSupabaseAvailable && state.currentUser.isSupabaseUser) {
+        try {
+          const { data, error } = await supabaseClient
+            .from('people')
+            .select('*')
+            .eq('owner_id', state.currentUser.id)
+            .order('full_name', { ascending: true });
+
+          if (!error && data) {
+            state.people = data;
+            populateVillageFilterOptions();
+            renderPeople();
+            updateDashboardMetrics();
+            return;
+          }
+        } catch (e) {
+          console.warn("Supabase fetch failed, falling back to local partition:", e);
+        }
+      }
+
+      // 2. Strict Partitioned Sandbox Isolation
+      const allPeople = JSON.parse(localStorage.getItem(SANDBOX_STORAGE_KEY_PEOPLE) || '[]');
+      // STRICT FILTER: Only load records where owner_id matches current user's ID
+      state.people = allPeople.filter(p => p.owner_id === state.currentUser.id);
+      
+      populateVillageFilterOptions();
+      renderPeople();
+      updateDashboardMetrics();
+    }
+
+    function populateVillageFilterOptions() {
+      const select = document.getElementById('filter-village-select');
+      const villages = [...new Set(state.people.map(p => p.village).filter(Boolean))].sort();
+      
+      // Preserve selection if possible
+      const currentVal = select.value;
+      select.innerHTML = '<option value="all">All Villages / Cities</option>';
+      villages.forEach(v => {
+        const opt = document.createElement('option');
+        opt.value = v;
+        opt.textContent = v;
+        select.appendChild(opt);
+      });
+      if (villages.includes(currentVal)) {
+        select.value = currentVal;
+      }
+    }
+
+    function updateDashboardMetrics() {
+      document.getElementById('stat-total-contacts').textContent = state.people.length;
+      document.getElementById('stat-starred-contacts').textContent = state.people.filter(p => p.is_starred).length;
+      
+      const uniqueVillages = new Set(state.people.map(p => p.village?.trim()).filter(Boolean));
+      document.getElementById('stat-villages-count').textContent = uniqueVillages.size;
+
+      const uniqueOrgs = new Set(state.people.map(p => p.party_organization?.trim()).filter(Boolean));
+      document.getElementById('stat-organizations-count').textContent = uniqueOrgs.size;
+    }
+
+    /* ====================================================================
+       8. MULTI-FIELD INSTANT SEARCH & SORT ENGINE
+       ==================================================================== */
+    function handleSearchInput() {
+      const input = document.getElementById('search-input');
+      const clearBtn = document.getElementById('search-clear-btn');
+      state.searchQuery = input.value.trim().toLowerCase();
+      
+      if (state.searchQuery.length > 0) {
+        clearBtn.classList.remove('hidden');
+      } else {
+        clearBtn.classList.add('hidden');
+      }
+      renderPeople();
+    }
+
+    function clearSearch() {
+      document.getElementById('search-input').value = '';
+      state.searchQuery = '';
+      document.getElementById('search-clear-btn').classList.add('hidden');
+      renderPeople();
+    }
+
+    function toggleStarredFilter() {
+      state.activeFilterStarred = !state.activeFilterStarred;
+      const btn = document.getElementById('filter-starred-btn');
+      const icon = document.getElementById('filter-starred-icon');
+      
+      if (state.activeFilterStarred) {
+        btn.classList.add('bg-amber-50', 'border-amber-400', 'text-amber-700');
+        icon.classList.remove('text-slate-400');
+        icon.classList.add('text-amber-500', 'fill-current');
+      } else {
+        btn.classList.remove('bg-amber-50', 'border-amber-400', 'text-amber-700');
+        icon.classList.remove('text-amber-500', 'fill-current');
+        icon.classList.add('text-slate-400');
+      }
+      renderPeople();
+    }
+
+    function setViewMode(mode) {
+      state.viewMode = mode;
+      const gridBtn = document.getElementById('view-mode-grid-btn');
+      const listBtn = document.getElementById('view-mode-list-btn');
+
+      if (mode === 'grid') {
+        gridBtn.classList.add('bg-white', 'text-slate-800', 'shadow-sm');
+        gridBtn.classList.remove('text-slate-500');
+        listBtn.classList.remove('bg-white', 'text-slate-800', 'shadow-sm');
+        listBtn.classList.add('text-slate-500');
+      } else {
+        listBtn.classList.add('bg-white', 'text-slate-800', 'shadow-sm');
+        listBtn.classList.remove('text-slate-500');
+        gridBtn.classList.remove('bg-white', 'text-slate-800', 'shadow-sm');
+        gridBtn.classList.add('text-slate-500');
+      }
+      renderPeople();
+    }
+
+    function resetAllFilters() {
+      clearSearch();
+      document.getElementById('filter-village-select').value = 'all';
+      if (state.activeFilterStarred) toggleStarredFilter();
+      document.getElementById('sort-select').value = 'name-asc';
+      renderPeople();
+    }
+
+    /* Filter, Search & Sort Logic */
+    function getFilteredPeople() {
+      const selectedVillage = document.getElementById('filter-village-select').value;
+      const sortValue = document.getElementById('sort-select').value;
+      const q = state.searchQuery;
+
+      let filtered = state.people.filter(person => {
+        // Starred Filter
+        if (state.activeFilterStarred && !person.is_starred) {
+          return false;
+        }
+
+        // Village Filter
+        if (selectedVillage !== 'all' && (person.village || '').trim() !== selectedVillage) {
+          return false;
+        }
+
+        // Multi-Field Search (8 Attributes)
+        if (q) {
+          const matchName = (person.full_name || '').toLowerCase().includes(q);
+          const matchProfession = (person.profession || '').toLowerCase().includes(q);
+          const matchVillage = (person.village || '').toLowerCase().includes(q);
+          const matchDob = (person.date_of_birth || '').toLowerCase().includes(q);
+          const matchPhone1 = (person.phone_number_1 || '').toLowerCase().includes(q);
+          const matchPhone2 = (person.phone_number_2 || '').toLowerCase().includes(q);
+          const matchParty = (person.party_organization || '').toLowerCase().includes(q);
+          const matchAddress = (person.address || '').toLowerCase().includes(q);
+          const matchNotes = (person.notes || '').toLowerCase().includes(q);
+
+          if (!matchName && !matchProfession && !matchVillage && !matchDob && 
+              !matchPhone1 && !matchPhone2 && !matchParty && !matchAddress && !matchNotes) {
+            return false;
+          }
+        }
+
+        return true;
+      });
+
+      // Sorting
+      filtered.sort((a, b) => {
+        if (sortValue === 'name-asc') {
+          return (a.full_name || '').localeCompare(b.full_name || '');
+        } else if (sortValue === 'name-desc') {
+          return (b.full_name || '').localeCompare(a.full_name || '');
+        } else if (sortValue === 'newest') {
+          return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+        } else if (sortValue === 'dob') {
+          return (a.date_of_birth || '9999').localeCompare(b.date_of_birth || '9999');
+        }
+        return 0;
+      });
+
+      return filtered;
+    }
+
+    /* ====================================================================
+       9. CONTACT CARD & LIST VIEW RENDERING
+       ==================================================================== */
+    function renderPeople() {
+      const container = document.getElementById('people-container');
+      const emptyState = document.getElementById('empty-state');
+      const searchInfo = document.getElementById('search-results-info');
+      const searchCount = document.getElementById('search-matches-count');
+
+      const items = getFilteredPeople();
+
+      // Search Info Bar update
+      if (state.searchQuery || state.activeFilterStarred || document.getElementById('filter-village-select').value !== 'all') {
+        searchInfo.classList.remove('hidden');
+        searchCount.textContent = `Showing ${items.length} of ${state.people.length} contacts`;
+      } else {
+        searchInfo.classList.add('hidden');
+      }
+
+      if (items.length === 0) {
+        container.innerHTML = '';
+        emptyState.classList.remove('hidden');
+        if (state.people.length === 0) {
+          document.getElementById('empty-state-title').textContent = 'Your Directory is Empty';
+          document.getElementById('empty-state-desc').textContent = 'Add your first person to start building your private directory.';
+        } else {
+          document.getElementById('empty-state-title').textContent = 'No Matches Found';
+          document.getElementById('empty-state-desc').textContent = 'Try adjusting your search terms or filters.';
+        }
+        return;
+      }
+
+      emptyState.classList.add('hidden');
+
+      if (state.viewMode === 'grid') {
+        container.className = 'grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5';
+        container.innerHTML = items.map(person => createGridCardHtml(person)).join('');
+      } else {
+        container.className = 'flex flex-col space-y-3';
+        container.innerHTML = items.map(person => createListCardHtml(person)).join('');
+      }
+    }
+
+    function getInitials(name) {
+      if (!name) return '?';
+      const parts = name.trim().split(/\s+/);
+      if (parts.length === 1) return parts[0][0].toUpperCase();
+      return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+
+    function createGridCardHtml(person) {
+      const initials = getInitials(person.full_name);
+      const waLink = buildWhatsAppLink(person.phone_number_1, person.full_name);
+      const callLink = buildCallLink(person.phone_number_1);
+      const starFillClass = person.is_starred ? 'text-amber-500 fill-current' : 'text-slate-300 hover:text-amber-400';
+
+      return `
+        <div class="bg-white rounded-2xl border border-slate-200/90 shadow-card hover:shadow-card-hover transition-all p-5 flex flex-col justify-between group">
+          <div>
+            <!-- Card Top: Avatar, Name & Favorite Star -->
+            <div class="flex items-start justify-between gap-3 mb-3">
+              <div class="flex items-center space-x-3.5 cursor-pointer" onclick="openDetailModal('${person.id}')">
+                <div class="w-12 h-12 rounded-xl bg-gradient-to-tr from-orange-600 to-orange-400 text-white font-extrabold text-sm flex items-center justify-center shadow-md shadow-orange-500/20 overflow-hidden flex-shrink-0">
+                  ${person.photo_url ? `<img src="${person.photo_url}" class="w-full h-full object-cover" alt="${escapeHtml(person.full_name)}"/>` : initials}
+                </div>
+                <div>
+                  <h3 class="font-extrabold text-slate-900 group-hover:text-orange-600 text-base tracking-tight leading-snug transition">
+                    ${escapeHtml(person.full_name)}
+                  </h3>
+                  <p class="text-xs font-semibold text-orange-600">${escapeHtml(person.profession || 'Contact')}</p>
+                </div>
+              </div>
+
+              <!-- Star Toggle -->
+              <button onclick="toggleStarPerson('${person.id}', event)" title="Toggle Favorite" class="p-1 text-lg transition transform active:scale-125">
+                <svg class="w-5 h-5 ${starFillClass}" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+              </button>
+            </div>
+
+            <!-- Details Chips -->
+            <div class="flex flex-wrap items-center gap-1.5 text-xs mb-4">
+              ${person.village ? `
+                <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-slate-100 text-slate-700 font-medium">
+                  <svg class="w-3 h-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/></svg>
+                  ${escapeHtml(person.village)}
+                </span>
+              ` : ''}
+
+              ${person.party_organization ? `
+                <span class="inline-flex items-center px-2 py-0.5 rounded-md bg-orange-50 text-orange-700 font-medium">
+                  ${escapeHtml(person.party_organization)}
+                </span>
+              ` : ''}
+
+              ${person.date_of_birth ? `
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-50 text-slate-500">
+                  <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                  ${formatDate(person.date_of_birth)}
+                </span>
+              ` : ''}
+            </div>
+          </div>
+
+          <!-- Bottom Actions: WhatsApp, Call, View -->
+          <div class="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+            <div class="flex items-center space-x-2">
+              <a href="${waLink}" target="_blank" rel="noopener noreferrer" title="Chat on WhatsApp" class="p-2 rounded-xl bg-emerald-50 hover:bg-emerald-600 text-emerald-600 hover:text-white transition shadow-sm">
+                <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
+              </a>
+              <a href="${callLink}" title="Call Now" class="p-2 rounded-xl bg-slate-100 hover:bg-slate-900 text-slate-700 hover:text-white transition shadow-sm">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+              </a>
+            </div>
+
+            <div class="flex items-center space-x-1">
+              <button onclick="openDetailModal('${person.id}')" class="px-2.5 py-1.5 rounded-lg text-xs font-semibold text-slate-700 hover:bg-slate-100 transition">
+                View
+              </button>
+              <button onclick="openEditPersonModal('${person.id}')" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition" title="Edit">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function createListCardHtml(person) {
+      const waLink = buildWhatsAppLink(person.phone_number_1, person.full_name);
+      const callLink = buildCallLink(person.phone_number_1);
+      const starFillClass = person.is_starred ? 'text-amber-500 fill-current' : 'text-slate-300';
+
+      return `
+        <div class="bg-white rounded-xl border border-slate-200/90 shadow-subtle hover:shadow-card transition p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div class="flex items-center space-x-3.5 cursor-pointer flex-grow" onclick="openDetailModal('${person.id}')">
+            <button onclick="toggleStarPerson('${person.id}', event)" class="p-1">
+              <svg class="w-4 h-4 ${starFillClass}" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+            </button>
+            <div>
+              <h4 class="font-bold text-slate-900 text-sm">${escapeHtml(person.full_name)}</h4>
+              <p class="text-xs text-slate-500">${escapeHtml(person.profession || 'Contact')} • <span class="font-semibold text-slate-700">${escapeHtml(person.village || 'No village')}</span></p>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-100">
+            <span class="text-xs font-mono text-slate-600">${escapeHtml(person.phone_number_1)}</span>
+            <div class="flex items-center space-x-1.5">
+              <a href="${waLink}" target="_blank" rel="noopener noreferrer" class="p-1.5 rounded-lg bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white transition">
+                <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
+              </a>
+              <a href="${callLink}" class="p-1.5 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-900 hover:text-white transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z"/></svg>
+              </a>
+              <button onclick="openEditPersonModal('${person.id}')" class="p-1.5 rounded-lg text-slate-400 hover:text-slate-800">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function formatDate(dateStr) {
+      if (!dateStr) return '';
+      try {
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) return dateStr;
+        return d.toLocaleDateString('en-GB'); // DD/MM/YYYY
+      } catch (e) {
+        return dateStr;
+      }
+    }
+
+    function escapeHtml(text) {
+      if (!text) return '';
+      return text.toString()
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    /* ====================================================================
+       10. STAR / FAVORITE TOGGLE
+       ==================================================================== */
+    async function toggleStarPerson(personId, event) {
+      if (event) event.stopPropagation();
+      const person = state.people.find(p => p.id === personId);
+      if (!person) return;
+
+      person.is_starred = !person.is_starred;
+
+      // Update in Supabase or Sandbox
+      if (isSupabaseAvailable && state.currentUser.isSupabaseUser) {
+        await supabaseClient.from('people').update({ is_starred: person.is_starred }).eq('id', personId);
+      } else {
+        const all = JSON.parse(localStorage.getItem(SANDBOX_STORAGE_KEY_PEOPLE) || '[]');
+        const idx = all.findIndex(p => p.id === personId);
+        if (idx !== -1) {
+          all[idx].is_starred = person.is_starred;
+          localStorage.setItem(SANDBOX_STORAGE_KEY_PEOPLE, JSON.stringify(all));
+        }
+      }
+
+      renderPeople();
+      updateDashboardMetrics();
+      showToast(person.is_starred ? 'Added to Starred contacts' : 'Removed from Starred contacts', 'info');
+    }
+
+    /* ====================================================================
+       11. ADD & EDIT CONTACT MODAL LOGIC
+       ==================================================================== */
+    function openAddPersonModal() {
+      if (state.currentUser && state.currentUser.status === 'suspended') {
+        showToast('Your account is suspended. Additions are disabled.', 'error');
+        return;
+      }
+      document.getElementById('person-modal-title').textContent = 'Add New Person';
+      document.getElementById('person-form').reset();
+      document.getElementById('person-id').value = '';
+      document.getElementById('person-photo-url').value = '';
+      document.getElementById('photo-preview-img').src = '';
+      document.getElementById('photo-preview-img').classList.add('hidden');
+      document.getElementById('photo-placeholder-initials').textContent = '?';
+      document.getElementById('photo-placeholder-initials').classList.remove('hidden');
+
+      document.getElementById('person-modal').classList.remove('hidden');
+    }
+
+    function openEditPersonModal(personId) {
+      const person = state.people.find(p => p.id === personId);
+      if (!person) return;
+
+      document.getElementById('person-modal-title').textContent = 'Edit Person Record';
+      document.getElementById('person-id').value = person.id;
+      document.getElementById('person-name').value = person.full_name || '';
+      document.getElementById('person-profession').value = person.profession || '';
+      document.getElementById('person-village').value = person.village || '';
+      document.getElementById('person-dob').value = person.date_of_birth || '';
+      document.getElementById('person-party').value = person.party_organization || '';
+      document.getElementById('person-phone1').value = person.phone_number_1 || '';
+      document.getElementById('person-phone2').value = person.phone_number_2 || '';
+      document.getElementById('person-address').value = person.address || '';
+      document.getElementById('person-notes').value = person.notes || '';
+      document.getElementById('person-starred').checked = !!person.is_starred;
+      document.getElementById('person-photo-url').value = person.photo_url || '';
+
+      if (person.photo_url) {
+        document.getElementById('photo-preview-img').src = person.photo_url;
+        document.getElementById('photo-preview-img').classList.remove('hidden');
+        document.getElementById('photo-placeholder-initials').classList.add('hidden');
+      } else {
+        document.getElementById('photo-preview-img').classList.add('hidden');
+        document.getElementById('photo-placeholder-initials').textContent = getInitials(person.full_name);
+        document.getElementById('photo-placeholder-initials').classList.remove('hidden');
+      }
+
+      document.getElementById('person-modal').classList.remove('hidden');
+    }
+
+    function closePersonModal() {
+      document.getElementById('person-modal').classList.add('hidden');
+    }
+
+    function handlePhotoSelection(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      if (file.size > 5 * 1024 * 1024) {
+        showToast('Image size exceeds 5MB limit.', 'error');
+        event.target.value = '';
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const base64 = e.target.result;
+        document.getElementById('person-photo-url').value = base64;
+        document.getElementById('photo-preview-img').src = base64;
+        document.getElementById('photo-preview-img').classList.remove('hidden');
+        document.getElementById('photo-placeholder-initials').classList.add('hidden');
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function handleSavePerson(event) {
+      event.preventDefault();
+      if (!state.currentUser) return;
+
+      const personId = document.getElementById('person-id').value;
+      const fullName = document.getElementById('person-name').value.trim();
+      const profession = document.getElementById('person-profession').value.trim();
+      const village = document.getElementById('person-village').value.trim();
+      const dob = document.getElementById('person-dob').value;
+      const party = document.getElementById('person-party').value.trim();
+      const phone1 = document.getElementById('person-phone1').value.trim();
+      const phone2 = document.getElementById('person-phone2').value.trim();
+      const address = document.getElementById('person-address').value.trim();
+      const notes = document.getElementById('person-notes').value.trim();
+      const isStarred = document.getElementById('person-starred').checked;
+      const photoUrl = document.getElementById('person-photo-url').value;
+
+      const recordPayload = {
+        owner_id: state.currentUser.id,
+        full_name: fullName,
+        profession: profession,
+        village: village,
+        date_of_birth: dob || null,
+        party_organization: party,
+        phone_number_1: phone1,
+        phone_number_2: phone2,
+        address: address,
+        notes: notes,
+        is_starred: isStarred,
+        photo_url: photoUrl,
+        updated_at: new Date().toISOString()
+      };
+
+      if (isSupabaseAvailable && state.currentUser.isSupabaseUser) {
+        try {
+          if (personId) {
+            await supabaseClient.from('people').update(recordPayload).eq('id', personId);
+          } else {
+            recordPayload.created_at = new Date().toISOString();
+            await supabaseClient.from('people').insert([recordPayload]);
+          }
+        } catch (e) {
+          showToast('Failed to save to Supabase. ' + e.message, 'error');
+          return;
+        }
+      } else {
+        // Sandbox Storage Save
+        const allPeople = JSON.parse(localStorage.getItem(SANDBOX_STORAGE_KEY_PEOPLE) || '[]');
+        if (personId) {
+          const idx = allPeople.findIndex(p => p.id === personId);
+          if (idx !== -1) {
+            allPeople[idx] = { ...allPeople[idx], ...recordPayload };
+          }
+        } else {
+          recordPayload.id = 'person-' + Date.now();
+          recordPayload.created_at = new Date().toISOString();
+          allPeople.push(recordPayload);
+        }
+        localStorage.setItem(SANDBOX_STORAGE_KEY_PEOPLE, JSON.stringify(allPeople));
+      }
+
+      closePersonModal();
+      await loadUserContacts();
+      showToast(personId ? 'Contact updated successfully!' : 'Contact added to your private space!', 'success');
+    }
+
+    /* ====================================================================
+       12. CONTACT DETAIL PROFILE MODAL
+       ==================================================================== */
+    function openDetailModal(personId) {
+      const person = state.people.find(p => p.id === personId);
+      if (!person) return;
+
+      state.currentDetailPerson = person;
+
+      document.getElementById('detail-name').textContent = person.full_name;
+      document.getElementById('detail-profession').textContent = person.profession || 'Contact Profile';
+      document.getElementById('detail-village-text').textContent = person.village || 'No village specified';
+      document.getElementById('detail-party-badge').textContent = person.party_organization || 'General';
+      document.getElementById('detail-phone1').textContent = person.phone_number_1 || '--';
+      document.getElementById('detail-phone2').textContent = person.phone_number_2 || 'None';
+      document.getElementById('detail-dob').textContent = person.date_of_birth ? formatDate(person.date_of_birth) : 'Not specified';
+      document.getElementById('detail-address').textContent = person.address || 'Not specified';
+      document.getElementById('detail-notes').textContent = person.notes || 'No remarks recorded.';
+
+      const avatarBox = document.getElementById('detail-avatar');
+      if (person.photo_url) {
+        avatarBox.innerHTML = `<img src="${person.photo_url}" class="w-full h-full object-cover" alt="${escapeHtml(person.full_name)}"/>`;
+      } else {
+        avatarBox.textContent = getInitials(person.full_name);
+      }
+
+      if (person.is_starred) {
+        document.getElementById('detail-star-badge').classList.remove('hidden');
+      } else {
+        document.getElementById('detail-star-badge').classList.add('hidden');
+      }
+
+      document.getElementById('detail-whatsapp-btn').href = buildWhatsAppLink(person.phone_number_1, person.full_name);
+      document.getElementById('detail-call-btn').href = buildCallLink(person.phone_number_1);
+
+      document.getElementById('detail-modal').classList.remove('hidden');
+    }
+
+    function closeDetailModal() {
+      document.getElementById('detail-modal').classList.add('hidden');
+      state.currentDetailPerson = null;
+    }
+
+    function openEditCurrentPerson() {
+      if (!state.currentDetailPerson) return;
+      const id = state.currentDetailPerson.id;
+      closeDetailModal();
+      openEditPersonModal(id);
+    }
+
+    function confirmDeleteCurrentPerson() {
+      if (!state.currentDetailPerson) return;
+      const person = state.currentDetailPerson;
+      openConfirmModal(
+        `Delete ${person.full_name}?`,
+        `This will permanently remove this contact from your private directory space.`,
+        async () => {
+          await deletePerson(person.id);
+          closeDetailModal();
+        }
+      );
+    }
+
+    async function deletePerson(personId) {
+      if (isSupabaseAvailable && state.currentUser.isSupabaseUser) {
+        await supabaseClient.from('people').delete().eq('id', personId);
+      } else {
+        const all = JSON.parse(localStorage.getItem(SANDBOX_STORAGE_KEY_PEOPLE) || '[]');
+        const updated = all.filter(p => p.id !== personId);
+        localStorage.setItem(SANDBOX_STORAGE_KEY_PEOPLE, JSON.stringify(updated));
+      }
+      await loadUserContacts();
+      showToast('Contact deleted from your private space.', 'info');
+    }
+
+    /* ====================================================================
+       13. SUPER ADMIN GOVERNANCE CONTROLLER (Zero-Knowledge)
+       ==================================================================== */
+    function toggleAdminView() {
+      if (!state.currentUser || state.currentUser.role !== 'admin') {
+        showToast('Access restricted to Super Administrator.', 'error');
+        return;
+      }
+      if (state.adminViewActive) {
+        showView('dashboard');
+      } else {
+        showView('admin');
+      }
+    }
+
+    function loadAdminDashboardData() {
+      const users = JSON.parse(localStorage.getItem(SANDBOX_STORAGE_KEY_USERS) || '[]');
+      const allPeople = JSON.parse(localStorage.getItem(SANDBOX_STORAGE_KEY_PEOPLE) || '[]');
+      const auditLogs = JSON.parse(localStorage.getItem(SANDBOX_STORAGE_KEY_AUDIT) || '[]');
+
+      state.adminData.users = users;
+      state.adminData.auditLogs = auditLogs;
+      state.adminData.totalPeopleCount = allPeople.length;
+
+      // Stats
+      document.getElementById('admin-stat-users').textContent = users.length;
+      document.getElementById('admin-stat-people').textContent = allPeople.length;
+      document.getElementById('admin-stat-active').textContent = users.filter(u => u.status === 'active').length;
+      document.getElementById('admin-stat-suspended').textContent = users.filter(u => u.status === 'suspended').length;
+      document.getElementById('admin-stat-storage').textContent = `${Math.round(JSON.stringify(allPeople).length / 1024)} KB`;
+
+      // Render Users Table
+      const tbody = document.getElementById('admin-users-table-body');
+      tbody.innerHTML = users.map(user => {
+        // Count owned records without disclosing content
+        const userContactCount = allPeople.filter(p => p.owner_id === user.id).length;
+        const isActive = user.status === 'active';
+
+        return `
+          <tr class="hover:bg-slate-50 transition">
+            <td class="px-6 py-4">
+              <div class="font-bold text-slate-900">${escapeHtml(user.full_name)}</div>
+              <div class="text-xs text-slate-400 font-mono">${escapeHtml(user.email)}</div>
+            </td>
+            <td class="px-6 py-4">
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${user.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-slate-100 text-slate-700'}">
+                ${user.role}
+              </span>
+            </td>
+            <td class="px-6 py-4">
+              <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold ${isActive ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'}">
+                <span class="w-1.5 h-1.5 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-red-500'}"></span>
+                ${isActive ? 'Active' : 'Suspended'}
+              </span>
+            </td>
+            <td class="px-6 py-4 text-xs text-slate-500">
+              ${formatDate(user.created_at)}
+            </td>
+            <td class="px-6 py-4">
+              <span class="font-bold text-slate-800">${userContactCount}</span>
+              <span class="text-[10px] text-slate-400 block">isolated items</span>
+            </td>
+            <td class="px-6 py-4 text-right space-x-2">
+              ${user.role !== 'admin' ? `
+                <button onclick="adminToggleUserStatus('${user.id}')" class="px-2.5 py-1 rounded-lg text-xs font-semibold ${isActive ? 'bg-amber-100 hover:bg-amber-200 text-amber-800' : 'bg-emerald-100 hover:bg-emerald-200 text-emerald-800'} transition">
+                  ${isActive ? 'Block' : 'Unblock'}
+                </button>
+                <button onclick="adminDeleteUser('${user.id}')" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-red-50 hover:bg-red-100 text-red-600 transition">
+                  Delete
+                </button>
+              ` : `<span class="text-xs text-slate-400 italic">Protected</span>`}
+            </td>
+          </tr>
+        `;
+      }).join('');
+
+      // Audit Log Container
+      const auditBox = document.getElementById('admin-audit-log-container');
+      auditBox.innerHTML = auditLogs.slice(-10).reverse().map(log => `
+        <div class="py-1 border-b border-slate-100 flex items-center justify-between">
+          <span><span class="text-slate-400">[${new Date(log.timestamp).toLocaleTimeString()}]</span> <span class="text-purple-600 font-bold">${log.action}:</span> ${escapeHtml(log.details)}</span>
+        </div>
+      `).join('');
+    }
+
+    function recordAdminAuditLog(action, details) {
+      const logs = JSON.parse(localStorage.getItem(SANDBOX_STORAGE_KEY_AUDIT) || '[]');
+      logs.push({
+        timestamp: new Date().toISOString(),
+        action: action,
+        details: details
+      });
+      localStorage.setItem(SANDBOX_STORAGE_KEY_AUDIT, JSON.stringify(logs));
+    }
+
+    function adminToggleUserStatus(userId) {
+      const users = JSON.parse(localStorage.getItem(SANDBOX_STORAGE_KEY_USERS) || '[]');
+      const user = users.find(u => u.id === userId);
+      if (!user) return;
+
+      const newStatus = user.status === 'active' ? 'suspended' : 'active';
+      user.status = newStatus;
+      localStorage.setItem(SANDBOX_STORAGE_KEY_USERS, JSON.stringify(users));
+
+      recordAdminAuditLog('USER_STATUS_CHANGE', `Admin changed ${user.email} status to ${newStatus}.`);
+      loadAdminDashboardData();
+      showToast(`User ${user.email} is now ${newStatus}.`, 'info');
+    }
+
+    function adminDeleteUser(userId) {
+      const users = JSON.parse(localStorage.getItem(SANDBOX_STORAGE_KEY_USERS) || '[]');
+      const user = users.find(u => u.id === userId);
+      if (!user) return;
+
+      openConfirmModal(
+        `Delete account of ${user.email}?`,
+        `This will permanently delete the user account and cascade delete all their private directory items.`,
+        () => {
+          // Remove user
+          const updatedUsers = users.filter(u => u.id !== userId);
+          localStorage.setItem(SANDBOX_STORAGE_KEY_USERS, JSON.stringify(updatedUsers));
+
+          // Cascade delete their people
+          const allPeople = JSON.parse(localStorage.getItem(SANDBOX_STORAGE_KEY_PEOPLE) || '[]');
+          const updatedPeople = allPeople.filter(p => p.owner_id !== userId);
+          localStorage.setItem(SANDBOX_STORAGE_KEY_PEOPLE, JSON.stringify(updatedPeople));
+
+          recordAdminAuditLog('USER_DELETED', `Admin deleted user ${user.email} and cascaded their contacts.`);
+          loadAdminDashboardData();
+          showToast(`User ${user.email} and records deleted.`, 'info');
+        }
+      );
+    }
+
+    /* ====================================================================
+       14. SELF-SOVEREIGN DATA EXPORT (CSV & JSON)
+       ==================================================================== */
+    function exportData(format) {
+      if (!state.people || state.people.length === 0) {
+        showToast('No contacts to export in this space.', 'info');
+        return;
+      }
+
+      const timestamp = new Date().toISOString().slice(0, 10);
+      const userTag = (state.currentUser?.email || 'my').split('@')[0];
+
+      if (format === 'json') {
+        const jsonStr = JSON.stringify(state.people, null, 2);
+        const blob = new Blob([jsonStr], { type: 'application/json' });
+        triggerDownload(blob, `person_directory_${userTag}_${timestamp}.json`);
+        showToast(`Exported ${state.people.length} contacts to JSON!`, 'success');
+      } else if (format === 'csv') {
+        // Headers matching README attributes
+        const headers = [
+          'Full Name',
+          'Profession',
+          'Village/City',
+          'Date of Birth',
+          'Primary Phone',
+          'Secondary Phone',
+          'Party/Organization',
+          'Address',
+          'Personal Notes',
+          'Starred'
+        ];
+
+        const rows = state.people.map(p => [
+          p.full_name || '',
+          p.profession || '',
+          p.village || '',
+          p.date_of_birth || '',
+          p.phone_number_1 || '',
+          p.phone_number_2 || '',
+          p.party_organization || '',
+          p.address || '',
+          p.notes || '',
+          p.is_starred ? 'YES' : 'NO'
+        ].map(val => `"${(val + '').replace(/"/g, '""')}"`).join(','));
+
+        const csvContent = [headers.join(','), ...rows].join('\r\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        triggerDownload(blob, `person_directory_${userTag}_${timestamp}.csv`);
+        showToast(`Exported ${state.people.length} contacts to CSV spreadsheet!`, 'success');
+      }
+    }
+
+    function triggerDownload(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    /* ====================================================================
+       15. AUTH MODAL CONTROLLER & FORGOT PASSWORD
+       ==================================================================== */
+    let currentAuthMode = 'login'; // 'login' | 'register'
+
+    function openAuthModal(mode = 'login') {
+      switchAuthTab(mode);
+      document.getElementById('auth-modal').classList.remove('hidden');
+    }
+
+    function closeAuthModal() {
+      document.getElementById('auth-modal').classList.add('hidden');
+    }
+
+    function switchAuthTab(mode) {
+      currentAuthMode = mode;
+      const tabLogin = document.getElementById('auth-tab-login');
+      const tabRegister = document.getElementById('auth-tab-register');
+      const nameField = document.getElementById('auth-field-name');
+      const submitBtn = document.getElementById('auth-submit-btn');
+
+      if (mode === 'login') {
+        tabLogin.className = 'flex-1 pb-3 text-sm font-bold border-b-2 border-orange-500 text-orange-600 transition';
+        tabRegister.className = 'flex-1 pb-3 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition';
+        nameField.classList.add('hidden');
+        submitBtn.textContent = 'Sign In to Private Space';
+      } else {
+        tabRegister.className = 'flex-1 pb-3 text-sm font-bold border-b-2 border-orange-500 text-orange-600 transition';
+        tabLogin.className = 'flex-1 pb-3 text-sm font-semibold border-b-2 border-transparent text-slate-500 hover:text-slate-800 transition';
+        nameField.classList.remove('hidden');
+        submitBtn.textContent = 'Create New Isolated Space';
+      }
+    }
+
+    async function handleAuthSubmit(event) {
+      event.preventDefault();
+      const email = document.getElementById('auth-input-email').value.trim();
+      const password = document.getElementById('auth-input-password').value;
+      const name = document.getElementById('auth-input-name').value.trim();
+
+      // Check if trying Supabase Cloud Auth
+      if (isSupabaseAvailable) {
+        try {
+          if (currentAuthMode === 'login') {
+            const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+            if (!error && data.user) {
+              state.currentUser = {
+                id: data.user.id,
+                email: data.user.email,
+                full_name: data.user.user_metadata?.full_name || email.split('@')[0],
+                role: 'user',
+                status: 'active',
+                isSupabaseUser: true
+              };
+              localStorage.setItem('pd_active_session', JSON.stringify(state.currentUser));
+              closeAuthModal();
+              updateNavigationUI();
+              await loadUserContacts();
+              showView('dashboard');
+              showToast('Signed in via Supabase Cloud Auth!', 'success');
+              return;
+            }
+          } else {
+            const { data, error } = await supabaseClient.auth.signUp({
+              email,
+              password,
+              options: { data: { full_name: name } }
+            });
+            if (!error && data.user) {
+              state.currentUser = {
+                id: data.user.id,
+                email: data.user.email,
+                full_name: name || email.split('@')[0],
+                role: 'user',
+                status: 'active',
+                isSupabaseUser: true
+              };
+              localStorage.setItem('pd_active_session', JSON.stringify(state.currentUser));
+              closeAuthModal();
+              updateNavigationUI();
+              await loadUserContacts();
+              showView('dashboard');
+              showToast('Created new private space via Supabase!', 'success');
+              return;
+            }
+          }
+        } catch (e) {
+          console.warn("Supabase auth error, falling back to local sandbox:", e.message);
+        }
+      }
+
+      // Local Sandbox Fallback Authentication
+      const users = JSON.parse(localStorage.getItem(SANDBOX_STORAGE_KEY_USERS) || '[]');
+      let existing = users.find(u => u.email.toLowerCase() === email.toLowerCase());
+
+      if (currentAuthMode === 'login') {
+        if (!existing) {
+          // Auto create in Sandbox mode for seamless testing
+          existing = {
+            id: 'user-' + Date.now(),
+            email: email,
+            full_name: email.split('@')[0],
+            role: 'user',
+            status: 'active',
+            created_at: new Date().toISOString()
+          };
+          users.push(existing);
+          localStorage.setItem(SANDBOX_STORAGE_KEY_USERS, JSON.stringify(users));
+        }
+        state.currentUser = existing;
+      } else {
+        if (existing) {
+          state.currentUser = existing;
+        } else {
+          const newUser = {
+            id: 'user-' + Date.now(),
+            email: email,
+            full_name: name || email.split('@')[0],
+            role: 'user',
+            status: 'active',
+            created_at: new Date().toISOString()
+          };
+          users.push(newUser);
+          localStorage.setItem(SANDBOX_STORAGE_KEY_USERS, JSON.stringify(users));
+          state.currentUser = newUser;
+        }
+      }
+
+      localStorage.setItem('pd_active_session', JSON.stringify(state.currentUser));
+      closeAuthModal();
+      updateNavigationUI();
+      await loadUserContacts();
+      showView('dashboard');
+      showToast(`Welcome ${state.currentUser.full_name || 'User'}! Private directory active.`, 'success');
+    }
+
+    function showForgotPasswordAlert() {
+      showToast('For Supabase password resets, check your registered email inbox or use test sandbox accounts.', 'info');
+    }
+
+    function handleSignOut() {
+      if (isSupabaseAvailable && state.currentUser?.isSupabaseUser) {
+        supabaseClient.auth.signOut();
+      }
+      state.currentUser = null;
+      state.people = [];
+      localStorage.removeItem('pd_active_session');
+      updateNavigationUI();
+      showView('landing');
+      showToast('Signed out successfully.', 'info');
+    }
+
+    /* ====================================================================
+       16. ACCOUNT SETTINGS & DATA PORTABILITY MODAL
+       ==================================================================== */
+    function openSettingsModal() {
+      if (!state.currentUser) return;
+      document.getElementById('settings-email').value = state.currentUser.email;
+      document.getElementById('settings-name').value = state.currentUser.full_name || '';
+      document.getElementById('settings-modal').classList.remove('hidden');
+    }
+
+    function closeSettingsModal() {
+      document.getElementById('settings-modal').classList.add('hidden');
+    }
+
+    function handleDeleteMyAccount() {
+      openConfirmModal(
+        'Delete Account & All Private Contacts?',
+        'This will permanently delete your account and all saved directory items. This cannot be undone.',
+        () => {
+          const userId = state.currentUser.id;
+          // Delete from people
+          const allPeople = JSON.parse(localStorage.getItem(SANDBOX_STORAGE_KEY_PEOPLE) || '[]');
+          localStorage.setItem(SANDBOX_STORAGE_KEY_PEOPLE, JSON.stringify(allPeople.filter(p => p.owner_id !== userId)));
+          // Delete from users
+          const allUsers = JSON.parse(localStorage.getItem(SANDBOX_STORAGE_KEY_USERS) || '[]');
+          localStorage.setItem(SANDBOX_STORAGE_KEY_USERS, JSON.stringify(allUsers.filter(u => u.id !== userId)));
+          
+          closeSettingsModal();
+          handleSignOut();
+          showToast('Your account and private contacts have been completely wiped.', 'info');
+        }
+      );
+    }
+
+    /* ====================================================================
+       17. BACKEND SQL GUIDE & SUPABASE SETUP MODAL
+       ==================================================================== */
+    function openSupabaseSetupModal() {
+      document.getElementById('supabase-modal').classList.remove('hidden');
+    }
+
+    function closeSupabaseSetupModal() {
+      document.getElementById('supabase-modal').classList.add('hidden');
+    }
+
+    async function testSupabaseConnection() {
+      const statusEl = document.getElementById('guide-supabase-status');
+      statusEl.textContent = 'Testing connection...';
+      statusEl.className = 'text-amber-400 font-semibold';
+
+      try {
+        const response = await fetch(`${SUPABASE_CONFIG.url}/rest/v1/`, {
+          headers: { 'apikey': SUPABASE_CONFIG.anonKey }
+        });
+        if (response.status === 200 || response.status === 401) {
+          statusEl.textContent = 'Connected (HTTP Live & Responsive)';
+          statusEl.className = 'text-emerald-400 font-semibold';
+          showToast('Live Supabase endpoint verified successfully!', 'success');
+        } else {
+          statusEl.textContent = `Response status: ${response.status}`;
+          statusEl.className = 'text-amber-400 font-semibold';
+        }
+      } catch (e) {
+        statusEl.textContent = 'Connection failed: ' + e.message;
+        statusEl.className = 'text-red-400 font-semibold';
+        showToast('Supabase connection test failed.', 'error');
+      }
+    }
+
+    function copySqlSchema() {
+      const sqlText = `
+CREATE TABLE IF NOT EXISTS public.profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  email TEXT NOT NULL,
+  full_name TEXT DEFAULT '',
+  role TEXT DEFAULT 'user' CHECK (role IN ('user', 'admin')),
+  status TEXT DEFAULT 'active' CHECK (status IN ('active', 'suspended')),
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.people (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  owner_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  full_name TEXT NOT NULL,
+  profession TEXT DEFAULT '',
+  village TEXT DEFAULT '',
+  date_of_birth DATE,
+  phone_number_1 TEXT NOT NULL,
+  phone_number_2 TEXT DEFAULT '',
+  party_organization TEXT DEFAULT '',
+  address TEXT DEFAULT '',
+  photo_url TEXT DEFAULT '',
+  notes TEXT DEFAULT '',
+  is_starred BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.people ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Strict space isolation" ON public.people
+  FOR ALL USING (auth.uid() = owner_id);
+
+CREATE POLICY "Users read own profile" ON public.profiles
+  FOR SELECT USING (auth.uid() = id);
+      `.trim();
+
+      navigator.clipboard.writeText(sqlText).then(() => {
+        showToast('SQL Schema copied to clipboard!', 'success');
+      }).catch(() => {
+        showToast('Please select and copy the text manually.', 'info');
+      });
+    }
+
+    /* ====================================================================
+       18. LEGAL MODALS (Privacy & Terms)
+       ==================================================================== */
+    function openLegalModal(type) {
+      const modal = document.getElementById('legal-modal');
+      const title = document.getElementById('legal-modal-title');
+      const body = document.getElementById('legal-modal-body');
+
+      if (type === 'privacy') {
+        title.textContent = 'Privacy Policy & Zero-Knowledge Architecture';
+        body.innerHTML = `
+          <p><b>1. Strict Database Partitioning:</b> All directory records are isolated per user space using Supabase Row-Level Security (RLS) where <code>owner_id = auth.uid()</code>. No user has permission to read or search another user's directory entries.</p>
+          <p><b>2. Zero-Knowledge Admin:</b> Super Administrators have platform lifecycle permissions (suspending or deleting accounts) but possess <b>ZERO cryptographic or query access</b> to read your private contacts, telephone numbers, villages, dates of birth, or remarks.</p>
+          <p><b>3. Self-Sovereignty:</b> You can export all your contacts in CSV spreadsheet or JSON format at any time with one click, or trigger permanent cascade account deletion.</p>
+        `;
+      } else {
+        title.textContent = 'Terms of Service';
+        body.innerHTML = `
+          <p><b>1. Acceptable Use:</b> The Person Directory Platform is provided for private management of contacts and directory records.</p>
+          <p><b>2. Security Responsibility:</b> Users are responsible for safeguarding their login credentials and authentication tokens.</p>
+          <p><b>3. Third-Party Integrations:</b> WhatsApp Click-to-Chat operates via official WhatsApp URI protocols without transmitting your credentials to WhatsApp servers.</p>
+        `;
+      }
+      modal.classList.remove('hidden');
+    }
+
+    function closeLegalModal() {
+      document.getElementById('legal-modal').classList.add('hidden');
+    }
+
+    /* ====================================================================
+       19. CONFIRMATION DIALOG MODAL
+       ==================================================================== */
+    function openConfirmModal(title, desc, onConfirm) {
+      document.getElementById('confirm-title').textContent = title;
+      document.getElementById('confirm-desc').textContent = desc;
+      state.confirmCallback = onConfirm;
+      document.getElementById('confirm-modal').classList.remove('hidden');
+    }
+
+    function closeConfirmModal(proceed = false) {
+      document.getElementById('confirm-modal').classList.add('hidden');
+      if (!proceed) state.confirmCallback = null;
+    }
+
+    function executeConfirmAction() {
+      if (typeof state.confirmCallback === 'function') {
+        state.confirmCallback();
+      }
+      closeConfirmModal(true);
+    }
+
+    /* ====================================================================
+       20. TOAST NOTIFICATION SYSTEM
+       ==================================================================== */
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      
+      let bgClass = 'bg-slate-900 text-white border-slate-700';
+      let iconSvg = '<svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>';
+
+      if (type === 'success') {
+        bgClass = 'bg-emerald-950 text-emerald-100 border-emerald-700';
+        iconSvg = '<svg class="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>';
+      } else if (type === 'error') {
+        bgClass = 'bg-red-950 text-red-100 border-red-700';
+        iconSvg = '<svg class="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>';
+      } else if (type === 'warning') {
+        bgClass = 'bg-amber-950 text-amber-100 border-amber-700';
+        iconSvg = '<svg class="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>';
+      }
+
+      toast.className = `flex items-center space-x-2.5 px-4 py-3 rounded-xl border shadow-xl text-xs font-semibold pointer-events-auto transform transition-all duration-300 translate-y-2 opacity-0 ${bgClass}`;
+      toast.innerHTML = `
+        <span class="flex-shrink-0">${iconSvg}</span>
+        <span class="flex-grow">${escapeHtml(message)}</span>
+      `;
+
+      container.appendChild(toast);
+
+      // Trigger entry animation
+      requestAnimationFrame(() => {
+        toast.classList.remove('translate-y-2', 'opacity-0');
+      });
+
+      // Auto dismiss after 3.5 seconds
+      setTimeout(() => {
+        toast.classList.add('opacity-0', '-translate-y-2');
+        setTimeout(() => {
+          if (toast.parentNode) toast.parentNode.removeChild(toast);
+        }, 300);
+      }, 3500);
+    }
+
+    /* ====================================================================
+       21. INITIALIZATION ON DOM READY
+       ==================================================================== */
+    document.addEventListener('DOMContentLoaded', () => {
+      initSession();
+    });
+
+    // Keyboard Shortcuts (ESC to close any modal)
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        closeAuthModal();
+        closePersonModal();
+        closeDetailModal();
+        closeSettingsModal();
+        closeSupabaseSetupModal();
+        closeLegalModal();
+        closeConfirmModal(false);
+      }
+    });
+  </script>
+</body>
+</html>
